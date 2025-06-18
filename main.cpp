@@ -1,7 +1,7 @@
 #include <bits/stdc++.h>
 using namespace std;
 
-int N, g[11], k[11], m[11], M, s[501], e[501], cnt[501], latency[11][501], a, b;
+int N, g[11], k[11], m[11], M, s[501], e[501], cnt[501], latency[11][501], a, b, server_index[501][11], NPU_size[11], request_size[11];
 
 void get_argument()
 {
@@ -21,6 +21,43 @@ void get_argument()
         }
     }
     cin >> a >> b;
+    for(int i = 1; i <= N; i++)
+    {
+        NPU_size[i] = (m[i]-b)/a;
+        request_size[i] = min(NPU_size[i], 1000);
+    }
+}
+
+int request_time(int size,int server,int user)
+{
+    return latency[server][user]+ceil(sqrt(size)/k[server]);
+}
+
+
+
+void sort_server()
+{   
+    for(int i=1;i<=M;i++)
+    {
+        
+        for(int j=1;j<=N;j++)
+        {
+            server_index[i][j]=j;
+        }
+    }
+    cout<<endl<<"test"<<endl;
+    for(int i=1;i<=M;i++)
+    {
+        sort(server_index[i]+1,server_index[i]+N+1,[i](int server_index1,int server_index2)->bool{
+            return double(request_time(request_size[server_index1],server_index1,i))/request_size[server_index1]<double(request_time(request_size[server_index2],server_index2,i))/request_size[server_index2];});
+        cout<<"user_"<<i<<":";
+        for(int j=1;j<=N;j++)
+        {
+            cout<<server_index[i][j]<<" ";
+        }  
+        cout<<endl;
+    }
+    return;
 }
 
 void solution()
@@ -46,8 +83,8 @@ void solution()
 
 int main()
 {
-    /////
     get_argument();
+    sort_server();
     solution();
     return 0;
 }

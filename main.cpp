@@ -46,6 +46,7 @@ void solution()
 
 int main()
 {
+    /////
     get_argument();
     solution();
     return 0;

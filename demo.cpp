@@ -51,6 +51,7 @@ int main()
 {
     get_argument();
     solution();
+    
     return 0;
 }
 // g++ demo.cpp -o demo; get-Content .\sample\data.in |demo.exe > output.txt

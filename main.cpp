@@ -1,8 +1,4 @@
 #include <bits/stdc++.h>
-// #include <algorithm>
-// #include <iomanip>
-// #include <vector>
-// #include
 using namespace std;
 
 int N, g[11], k[11], m[11], M, s[501], e[501], cnt[501], latency[11][501], a, b;
@@ -40,8 +36,9 @@ void solution()
 
         for(int k = 1; k <= Ti; k++)
         {
-            cout << timej << " " << serverj << " " << 1 << " " << Bj << " ";
+            cout << timej << " " << serverj << " " << 1 << " " << min(Bj, cnt[i]) << " ";
             timej += latency[serverj][i] + 1;
+            cnt[i] -= min(Bj, cnt[i]);
         }
         cout << "\n";
     }
@@ -51,7 +48,6 @@ int main()
 {
     get_argument();
     solution();
-    
     return 0;
 }
-// g++ demo.cpp -o demo; get-Content .\sample\data.in |demo.exe > output.txt
+// g++ main.cpp -o main; get-Content .\sample\data.in | main.exe > output.txt

@@ -2,3 +2,4 @@
 output.txt
 *.exe
 sample\README.md
+.gitignore

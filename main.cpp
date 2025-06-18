@@ -2,8 +2,9 @@
 using namespace std;
 
 int N, g[11], k[11], m[11], M, s[501], e[501], cnt[501], latency[11][501], a, b;
-
-void get_argument()
+int which_gpu[11]; // which_gpu[i]用于表示第i个服务器应该让哪一个gpu处理传送至服务器i的请求
+//int que[11][11][200000];
+void get_argument_initial()
 {
     cin >> N;
     for (int i = 1; i <= N; i++)
@@ -21,6 +22,7 @@ void get_argument()
         }
     }
     cin >> a >> b;
+    for(int i = 1; i <= N; i++)which_gpu[i] = 1;// initial which_gpu
 }
 
 void solution()
@@ -36,9 +38,11 @@ void solution()
 
         for(int k = 1; k <= Ti; k++)
         {
-            cout << timej << " " << serverj << " " << 1 << " " << min(Bj, cnt[i]) << " ";
+            cout << timej << " " << serverj << " " << which_gpu[serverj] << " " << min(Bj, cnt[i]) << " ";
+
             timej += latency[serverj][i] + 1;
             cnt[i] -= min(Bj, cnt[i]);
+            which_gpu[serverj] = which_gpu[serverj] % g[serverj] + 1;
         }
         cout << "\n";
     }
@@ -46,8 +50,8 @@ void solution()
 
 int main()
 {
-    /////
-    get_argument();
+    
+    get_argument_initial();
     solution();
     return 0;
 }

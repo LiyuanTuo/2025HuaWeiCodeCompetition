@@ -1,4 +1,4 @@
 .vscode\
 output.txt
-demo.exe
+*.exe
 sample\README.md

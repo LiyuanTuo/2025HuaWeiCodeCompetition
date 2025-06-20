@@ -3,6 +3,5 @@ output.txt
 *.exe
 sample\README.md
 .gitignore
-test.py
 test.txt
 test.cpp

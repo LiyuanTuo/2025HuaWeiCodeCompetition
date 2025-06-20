@@ -46,17 +46,17 @@ void sort_server()
             server_index[i][j] = j; // 存的是服务器的下标
         }
     }
-    cout << endl << "test" << endl;
+    // cout << endl << "test" << endl;
     for (int i = 1; i <= M; i++)
     {
         sort(server_index[i] + 1, server_index[i] + N + 1, [i](int server_index1, int server_index2) -> bool
              { return double(request_time(request_size[server_index1], server_index1, i)) / request_size[server_index1] < double(request_time(request_size[server_index2], server_index2, i)) / request_size[server_index2]; });
-        cout << "user_" << i << ":";
-        for (int j = 1; j <= N; j++)
-        {
-            cout << server_index[i][j] << " ";
-        }
-        cout << endl;
+        // cout << "user_" << i << ":";
+        // for (int j = 1; j <= N; j++)
+        // {
+        //     cout << server_index[i][j] << " ";
+        // }
+        // cout << endl;
     }
     return;
 }
@@ -76,7 +76,7 @@ void solution()
         {
             cout << timej << " " << serverj << " " << which_gpu[serverj] << " " << min(Bj, cnt[i]) << " ";
 
-            timej += latency[serverj][i] + 1;
+            timej += latency[serverj][i] + 20;
             cnt[i] -= min(Bj, cnt[i]);
             which_gpu[serverj] = which_gpu[serverj] % g[serverj] + 1;
         }
@@ -92,4 +92,4 @@ int main()
     solution();
     return 0;
 }
-// g++ main.cpp -o main; get-Content .\sample\data.in | main.exe > output.txt
+// g++ main.cpp -std=c++11 -o main; get-Content .\sample\data.in | main.exe > output.txt

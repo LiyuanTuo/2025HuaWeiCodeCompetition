@@ -1,13 +1,13 @@
 #include <bits/stdc++.h>
 using namespace std;
 // 单个npu能处理的样本的大小范围是[40, 190]
-// 单个npu完成上述大小范围的样本所需时间的范围是[2, 14]
-int N, g[11], k[11], m[11], M, latency[11][501], a, b, server_index[501][11], NPU_size[11][11][100001], request_size[11];
-vector<int> receive_process[11][11][100001];
+// 单个npu完成上述大小范围的样本所需时间的范围是[2, 14]                           //只能说明有极端数据，也即请求非常多，NPU又不够多的极端数据
+// 传输时间范围是[10, 20]                                                      //震惊？？？10万invalid output 20万是success
+int N, g[11], k[11], m[11], M, latency[11][501], a, b, server_index[501][11], NPU_size[11][11][200001], request_size[11];
+bool receive_process[11][11][200001];
 struct Plan
 {
     int timej, serverj, NPUj, Bj, process_start;
-    // Plan() : timej(0), serverj(0), NPUj(0), Bj(0) {}
 };
 vector<Plan> ans[501]; // 这个ans的下标是用户的真实id
 struct User
@@ -44,8 +44,8 @@ void get_argument_initial()
     cin >> a >> b;
 
     for (int i = 1; i <= N; i++)
-        for (int j = 1; j <= g[i]; j++)  //减小空间复杂度
-            for (int k = 0; k <= 100000; k++)
+        for (int j = 1; j <= g[i]; j++)  //初始化
+            for (int k = 0; k <= 200000; k++)
                 NPU_size[i][j][k] = (m[i] - b) / a; // 确实应该向下取整，
 
     for (int i = 1; i <= N; i++)
@@ -66,7 +66,6 @@ void sort_server()
 
     for (int i = 1; i <= M; i++)
     {
-
         for (int j = 1; j <= N; j++)
         {
             server_index[i][j] = j; // 存的是服务器的下标
@@ -123,10 +122,9 @@ void solution()
                         int receive_time = timej + latency[j][id];
                         for(int q = timej + latency[j][id]; q <= process_start - 1; q++)
                         {
-                            for(int r : receive_process[j][k][q])
+                            if(receive_process[j][k][q])
                             {
-                                if(r > receive_time)
-                                    receive_time = r + 1; // 待优化
+                                receive_time = q + 1; // 待优化
                             }
                         }   
                         // receive_time 存储的就是这个NPU收到这个请求的时间
@@ -148,12 +146,12 @@ void solution()
             }
         }
         
-        for (auto &j : ans[id])
+        for (auto j : ans[id])
         {
-            for (int p = j.process_start; p <= j.process_start + request_time(j.Bj, j.serverj, i) - latency[j.serverj][id] - 1; p++)
-                NPU_size[j.serverj][j.NPUj][p] -= j.Bj;
+            for (int k = j.process_start; k <= j.process_start + request_time(j.Bj, j.serverj, i) - latency[j.serverj][id] - 1; k++)
+                NPU_size[j.serverj][j.NPUj][k] -= j.Bj;
 
-            receive_process[j.serverj][j.NPUj][j.process_start].push_back(j.timej + latency[j.serverj][id]);
+            receive_process[j.serverj][j.NPUj][j.timej + latency[j.serverj][id]] = 1;
         }
                 
     }
@@ -165,7 +163,7 @@ void solution()
         for (auto j : ans[i])
             cout << j.timej << " " << j.serverj << " " << j.NPUj << " " << j.Bj << " ";
         // for (int j = 1; j <= ans[i].size() - 1; j++)
-        // {
+        // {                       danger ans[i].size() - 1
         //     if (ans[i][j].timej - ans[i][j - 1].timej >= latency[ans[i][j - 1].serverj][i] + 1)
         //         cout << "OK " << latency[ans[i][j - 1].serverj][i] + 1  << " ";
         //     else cout <<"Wrong ";
@@ -181,7 +179,7 @@ void monitor_NPU_size()
     {
         for (int j = 1; j <= g[i]; j++)
         {
-            for (int k = 0; k <= 100000; k++)
+            for (int k = 0; k <= 200000; k++)
             {
                 out << NPU_size[i][j][k] << " ";
             }
@@ -197,7 +195,7 @@ int main()
     sort_server();
     solution();
 
-    monitor_NPU_size();
+    //monitor_NPU_size();
     return 0;
 }
 // g++ main.cpp -std=c++11 -o main; get-Content .\sample\data.in | main.exe > output.txt

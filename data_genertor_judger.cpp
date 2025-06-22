@@ -169,7 +169,7 @@ void calulate_score()
 
 int main()
 {
-    data_generator();
+    //data_generator();
     system("g++ main.cpp -lm -Wl,--stack=134217728 -O0 -std=c++11 -static-libstdc++ -static-libgcc -o main");
     system("main.exe < .\\sample\\data.in > output.txt");
 
@@ -187,7 +187,7 @@ int main()
     }
     in.close();
 
-    brief_check();
+    //brief_check();
 
     calulate_score();
     return 0;

@@ -95,7 +95,7 @@ void brief_check()
     }
 
     for (int i = 1; i <= M; i++)
-    {                     ////这里必须进行类型转换，否则会出现类型转换的错误
+    { ////这里必须进行类型转换，否则会出现类型转换的错误
         for (int j = 0; j <= int(solution[i].size()) - 2; j++)
             if (solution[i][j + 1].timej <= solution[i][j].timej)
             {
@@ -105,7 +105,7 @@ void brief_check()
     }
 
     for (int i = 1; i <= M; i++)
-    {                             //这里必须进行类型转换，否则会出现类型转换的错误
+    { // 这里必须进行类型转换，否则会出现类型转换的错误
         for (int j = 0; j <= int(solution[i].size()) - 2; j++)
             if (solution[i][j + 1].timej - solution[i][j].timej < latency[solution[i][j].serverj][i])
             {
@@ -145,6 +145,22 @@ void brief_check()
             }
         }
     }
+
+    for (int i = 1; i <= M; i++)
+    {
+        for (Plan &j : solution[i])
+            if (j.serverj > N || j.serverj <= 0)
+            {
+                cout << "User id " << i << "    Invalid Server Index(serverj > N or serverj < 1)";
+            }
+
+        for (Plan &j : solution[i])
+            if (j.NPUj > g[j.serverj] || j.NPUj <= 0)
+            {
+                cout << "User id " << i << "    Invalid NPU Index(NPUj > g[serverj] or NPUj < 1)";
+            }
+    }
+    cout << "Success";
 }
 
 void calulate_score()
@@ -155,7 +171,7 @@ int main()
 {
     data_generator();
     system("g++ main.cpp -lm -Wl,--stack=134217728 -O0 -std=c++11 -static-libstdc++ -static-libgcc -o main");
-    system("main.exe < .\\sample\\extra_data.in > output.txt");
+    system("main.exe < .\\sample\\data.in > output.txt");
 
     ifstream in("output.txt");
     for (int i = 1; i <= M; i++)

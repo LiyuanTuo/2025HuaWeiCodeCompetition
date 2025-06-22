@@ -4,7 +4,7 @@ using namespace std;
 // 单个npu完成上述大小范围的样本所需时间的范围是[2, 14]                           //只能说明有极端数据，也即请求非常多，NPU又不够多的极端数据
 // 传输时间范围是[10, 20]                                                      //震惊？？？10万invalid output 20万是success
 int N, g[11], k[11], m[11], M, latency[11][501], a, b, server_index[501][11], NPU_size[11][11][200001], request_size[11];
-bool receive_process[11][11][200001];
+int receive_process[11][11][200001];
 struct Plan
 {
     int timej, serverj, NPUj, Bj, process_start;
@@ -117,31 +117,44 @@ void solution()
                         }
 
                     if (flag)
-                    {   //process_start存储的是该NPU开始处理当前这个请求的时间, 正确维护？？？
+                    {   //process_start存储的是该NPU开始处理当前这个请求的时间
                         //也即是服务器接收到这个请求时间的上界 timej + latency[j][id] 是接收到这个请求时间的下界
+                        for(int q = 0; q <= time_process - 1; q++)
+                        {
+                            NPU_size[j][k][process_start + q] -= size;  //更新这个NPU_size
+                        }
                         int receive_time = timej + latency[j][id];
                         for(int q = timej + latency[j][id]; q <= process_start - 1; q++)
                         {
                             if(receive_process[j][k][q])
                             {
-                                receive_time = q + 1; // 待优化
+                                receive_time = q + 1; // 确定receive_time
                             }
                         }   
+                        receive_process[j][k][receive_time]++; // 更新receive_process
                         // receive_time 存储的就是这个NPU收到这个请求的时间
                         //于是timej就是这个请求正确发送的最早时间，并且再次初始化process_start
                         timej = receive_time - latency[j][id];
                         plan.push_back({timej, j, k, size, process_start});
-                        timej = timej + latency[j][id] + 1;//准备下一次请求
+                        timej = timej + latency[j][id] + 1;//准备下一次请求的发送时间
                         process_start = timej + latency[j][id];
                         count++;
                         cnt -= size;
                     }        
                 }
             
-                if (plan.back().process_start + request_time(plan.back().Bj, j, i) - latency[j][id] < Fast_Time)
+                if (plan.back().process_start + request_time(plan.back().Bj, j, i) - latency[j][id] <= Fast_Time)
                 {
                     Fast_Time = plan.back().process_start + request_time(plan.back().Bj, j, i) - latency[j][id];
                     ans[id] = plan;
+                }
+                //还原
+                for(Plan& p : plan)
+                {
+                    receive_process[j][k][p.timej + latency[j][id]]--;
+                    int time_process = request_time(p.Bj, j, i) - latency[j][id];
+                    for(int q = 0; q <= time_process - 1; q++)
+                        NPU_size[j][k][p.process_start + q] += p.Bj;
                 }
             }
         }
@@ -149,9 +162,12 @@ void solution()
         for (auto j : ans[id])
         {
             for (int k = j.process_start; k <= j.process_start + request_time(j.Bj, j.serverj, i) - latency[j.serverj][id] - 1; k++)
+            {
                 NPU_size[j.serverj][j.NPUj][k] -= j.Bj;
+                //cout << "";
+            }
 
-            receive_process[j.serverj][j.NPUj][j.timej + latency[j.serverj][id]] = 1;
+            receive_process[j.serverj][j.NPUj][j.timej + latency[j.serverj][id]]++;
         }
                 
     }
@@ -195,7 +211,7 @@ int main()
     sort_server();
     solution();
 
-    //monitor_NPU_size();
+    monitor_NPU_size();
     return 0;
 }
 // g++ main.cpp -std=c++11 -o main; get-Content .\sample\data.in | main.exe > output.txt

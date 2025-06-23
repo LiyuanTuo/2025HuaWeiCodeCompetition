@@ -3,15 +3,16 @@ using namespace std;
 // 单个npu能处理的样本的大小范围是[40, 190]
 // 单个npu完成上述大小范围的样本所需时间的范围是[2, 14]                           //只能说明有极端数据，也即请求非常多，NPU又不够多的极端数据
 // 传输时间范围是[10, 20]                                                      //震惊？？？10万invalid output 20万是success
-int N, g[11], k[11], m[11], M, latency[11][501], a, b, server_index[501][11], NPU_size[11][11][200001], request_size[11];
-int receive_process[11][11][200001];
-int which_gpu[11]; // which_gpu[i]用于表示第i个服务器应该让哪一个gpu处理传送至服务器i的请求
+int N, g[11], k[11], m[11], M, latency[11][501], a, b, server_index[501][11], request_size[11], request_id;
+short NPU_size[11][11][135001];
+vector<int> receive_process[11][11][135001]; // 内存储请求的id                                       // 为了确定数据范围，现在尝试确定这个135001能减小到多少？
+int which_gpu[11];                           // which_gpu[i]用于表示第i个服务器应该让哪一个gpu处理传送至服务器i的请求  13.5万是安全的
 
 struct Plan
 {
-    int timej, serverj, NPUj, Bj, process_start;
-};
-vector<Plan> ans[501]; // 这个ans的下标是用户的真实id
+    int timej, serverj, NPUj, Bj, process_start, sender;
+} plan[80000];        // 至多80000万个请求
+vector<int> ans[501]; // 这个ans的下标是用户的真实id, 存储请求的id
 struct User
 {
     int id, s, e, cnt;
@@ -47,12 +48,12 @@ void get_argument_initial()
 
     for (int i = 1; i <= N; i++)
         for (int j = 1; j <= g[i]; j++) // 初始化
-            for (int k = 0; k <= 200000; k++)
+            for (int k = 0; k <= 135000; k++)
                 NPU_size[i][j][k] = (m[i] - b) / a; // 确实应该向下取整，
 
     for (int i = 1; i <= N; i++)
     {
-        request_size[i] = min(NPU_size[i][1][1], 1000); // 表示应该向第i个服务器的NPU放入多大的样本数量
+        request_size[i] = min(NPU_size[i][1][1], short(1000)); // 表示应该向第i个服务器的NPU放入多大的样本数量
     }
     for (int i = 1; i <= N; i++)
         which_gpu[i] = 1; // initial which_gpu
@@ -96,12 +97,13 @@ void solution()
     for (int i = 1; i <= M; i++)
     {
         int id = user[i].id, Fast_Time = 0x3f3f3f3f;
+        vector<Plan> Fast_Solu;
 
         for (int j = 1; j <= N; j++)
         {
             int k = which_gpu[j];
             int Ti = (int)ceil(1.0 * user[i].cnt / request_size[j]);
-            vector<Plan> plan;
+            vector<Plan> solu; // 存储的是请求的id
             int cnt = user[i].cnt;
             int timej = user[i].s, process_start = timej + latency[j][id];
             int count = 0;
@@ -128,57 +130,63 @@ void solution()
                     }
                     int receive_time = timej + latency[j][id];
                     for (int q = timej + latency[j][id]; q <= process_start - 1; q++)
-                    {
-                        if (receive_process[j][k][q])
+                        for (int &r : receive_process[j][k][q])
                         {
-                            receive_time = q + 1; // 确定receive_time
+                            // if (plan[r].sender > id)
+                            //     receive_time = q + 1; // 确定receive_time
+                            // else
+                            //     receive_time = q;
+                            receive_time = q + 1;
                         }
-                    }
-                    receive_process[j][k][receive_time]++; // 更新receive_process
+
                     // receive_time 存储的就是这个NPU收到这个请求的时间
                     // 于是timej就是这个请求正确发送的最早时间，并且再次初始化process_start
                     timej = receive_time - latency[j][id];
-                    plan.push_back({timej, j, k, size, process_start});
+                    solu.push_back({timej, j, k, size, process_start, id});
                     timej = timej + latency[j][id] + 1;     // 准备下一次请求的发送时间
                     process_start = timej + latency[j][id]; // 准备下一次请求的开始处理的事件时间
                     count++;
                     cnt -= size;
                 }
             }
-            //更新ans[id]
-            if (plan.back().process_start + request_time(plan.back().Bj, j, i) - latency[j][id] <= Fast_Time)
+            // 更新ans[id]
+            if (solu.back().process_start + request_time(solu.back().Bj, j, i) - latency[j][id] <= Fast_Time)
             {
-                Fast_Time = plan.back().process_start + request_time(plan.back().Bj, j, i) - latency[j][id];
-                ans[id] = plan;
+                Fast_Time = solu.back().process_start + request_time(solu.back().Bj, j, i) - latency[j][id];
+                Fast_Solu = solu;
             }
             // 还原
-            for (Plan &p : plan)
+
+            for (Plan &p : solu)
             {
-                receive_process[j][k][p.timej + latency[j][id]]--;
                 int time_process = request_time(p.Bj, j, i) - latency[j][id];
                 for (int q = 0; q <= time_process - 1; q++)
                     NPU_size[j][k][p.process_start + q] += p.Bj;
             }
         }
 
-        for (auto j : ans[id])
+        for (Plan j : Fast_Solu)
         {
+            request_id++;
             for (int k = j.process_start; k <= j.process_start + request_time(j.Bj, j.serverj, i) - latency[j.serverj][id] - 1; k++)
             {
                 NPU_size[j.serverj][j.NPUj][k] -= j.Bj;
                 // cout << "";
             }
-            receive_process[j.serverj][j.NPUj][j.timej + latency[j.serverj][id]]++;
+            plan[request_id] = j;
+            receive_process[j.serverj][j.NPUj][j.timej + latency[j.serverj][id]].push_back(request_id);
+            ans[id].push_back(request_id);
         }
-        which_gpu[ans[id][0].serverj] = which_gpu[ans[id][0].serverj] % g[ans[id][0].serverj] + 1;
+        Plan temp = Fast_Solu[0];
+        which_gpu[temp.serverj] = which_gpu[temp.serverj] % g[temp.serverj] + 1;
     }
 
     for (int i = 1; i <= M; i++)
     {
         cout << ans[i].size() << "\n"; // Ti must less than 300, there won't cost a problem
 
-        for (auto j : ans[i])
-            cout << j.timej << " " << j.serverj << " " << j.NPUj << " " << j.Bj << " ";
+        for (int j : ans[i])
+            cout << plan[j].timej << " " << plan[j].serverj << " " << plan[j].NPUj << " " << plan[j].Bj << " ";
         // for (int j = 1; j <= ans[i].size() - 1; j++)
         // {                       danger ans[i].size() - 1
         //     if (ans[i][j].timej - ans[i][j - 1].timej >= latency[ans[i][j - 1].serverj][i] + 1)
@@ -199,7 +207,7 @@ void monitor_NPU_size()
     //     for (int j = 1; j <= g[i]; j++)
     //     {
     //         int sumsize_i_j = 0;
-    //         for (int k = 0; k <= 200000; k++)
+    //         for (int k = 0; k <= 135000; k++)
     //         {
     //             sumsize_i_j += (m[i] - b) / a - NPU_size[i][j][k];
     //         }
@@ -225,29 +233,47 @@ void monitor_NPU_size()
     // {
     //     cout << "WRONG";
     // }
+    // ofstream out("monitor.txt");
+    // for (int i = 1; i <= N; i++)
+    // {
+    //     for (int j = 1; j <= g[i]; j++)
+    //     {
+    //         for (int k = 0; k <= 100000; k++)
+    //         {
+    //             out << NPU_size[i][j][k] << " ";
+    //         }
+    //         out << "\n";
+    //     }
+    // }
+    // out.close();
 
-    ofstream out("monitor.txt");
-    for (int i = 1; i <= N; i++)
+    sort(user + 1, user + M + 1, [](User &a, User &b)
+         { return a.id < b.id; });
+    int latenum = 0;
+    for (int i = 1; i <= M; i++)
     {
-        for (int j = 1; j <= g[i]; j++)
-        {
-            for (int k = 0; k <= 100000; k++)
-            {
-                out << NPU_size[i][j][k] << " ";
-            }
-            out << "\n";
-        }
+        Plan &solu = plan[ans[i].back()];
+        if (solu.process_start + request_time(solu.Bj, solu.serverj, i) - latency[solu.serverj][i] > user[i].e)
+            latenum++;
     }
-    out.close();
-}
+    cout << "\n\n\n"
+         << latenum << "\n\n\n";
 
+    for (int i = 1; i <= M; i++)
+    {
+        Plan &solu = plan[ans[i].back()];
+        int endid = solu.process_start + request_time(solu.Bj, solu.serverj, i) - latency[solu.serverj][i] - user[i].e;
+        cout << "user: " << i << "  " << 1.0 * endid / (user[i].e - user[i].s) << "\n";
+    }
+}
+//-0.992853
 int main()
 {
     get_argument_initial();
     sort_server();
     solution();
 
-    monitor_NPU_size();
+    // monitor_NPU_size();
     return 0;
 }
 // g++ main.cpp -std=c++11 -o main; get-Content .\sample\data.in | main.exe > output.txt

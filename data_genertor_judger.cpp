@@ -198,6 +198,7 @@ void brief_check()
 
 void calulate_score()
 {
+    
 }
 
 int main()

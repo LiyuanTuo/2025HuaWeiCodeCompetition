@@ -1,12 +1,13 @@
+// 78409093分
 #include <bits/stdc++.h>
 using namespace std;
 // 单个npu能处理的样本的大小范围是[40, 190]
-// 单个npu完成上述大小范围的样本所需时间的范围是[2, 14]                           //只能说明有极端数据，也即请求非常多，NPU又不够多的极端数据
-// 传输时间范围是[10, 20]                                                      //震惊？？？10万invalid output 20万是success
+// 单个npu完成上述大小范围的样本所需时间的范围是[2, 14]                          
+// 传输时间范围是[10, 20]                                                      
 int N, g[11], k[11], m[11], M, latency[11][501], a, b, server_index[501][11], request_size[11], request_id;
-short NPU_size[11][11][135001];
-vector<int> receive_process[11][11][135001]; // 内存储请求的id                                       // 为了确定数据范围，现在尝试确定这个135001能减小到多少？
-int which_gpu[11];                           // which_gpu[i]用于表示第i个服务器应该让哪一个gpu处理传送至服务器i的请求  13.5万是安全的
+short NPU_size[11][11][135001];//有极端数据，13.5万是安全的
+vector<int> receive_process[11][11][135001]; // 内存储请求的id                                  
+int which_gpu[11];                           // which_gpu[i]用于表示第i个服务器应该让哪一个gpu处理传送至服务器i的请求  
 
 struct Plan
 {
@@ -19,10 +20,10 @@ struct User
     User() : id(0), s(0), e(0), cnt(0) {}
     bool operator<(const User &other)
     {
-        if (s != other.s)
-            return s < other.s;
-        else
+        if (cnt != other.cnt)   //查完成度，必须查！！！更改排序的优先级设置
             return cnt < other.cnt;
+        else
+            return s < other.s;
     }
 } user[501];
 
@@ -135,7 +136,7 @@ void solution()
                             // if (plan[r].sender > id)
                             //     receive_time = q + 1; // 确定receive_time
                             // else
-                            //     receive_time = q;
+                            //     receive_time = q;    //目前来看，这部分影响较小
                             receive_time = q + 1;
                         }
 
@@ -164,7 +165,7 @@ void solution()
                     NPU_size[j][k][p.process_start + q] += p.Bj;
             }
         }
-
+        //采用最优的方案
         for (Plan j : Fast_Solu)
         {
             request_id++;
@@ -247,6 +248,7 @@ void monitor_NPU_size()
     // }
     // out.close();
 
+    //这段代码检查任务完成情况
     sort(user + 1, user + M + 1, [](User &a, User &b)
          { return a.id < b.id; });
     int latenum = 0;

@@ -4,7 +4,7 @@
 #include <vector>
 #include <algorithm>
 using namespace std;
-int N, g[11], k[11], m[11], M, latency[11][501], a, b;
+int N, g[11], k[11], m[11], M, latency[11][501], a, b, NPU_size[11][11][200001], request_size[11];
 struct User
 {
     int id, s, e, cnt;
@@ -17,8 +17,41 @@ struct Plan
 };
 vector<Plan> solution[501];
 
-void data_generator()
+void data_loader_generator(bool New)
 {
+    system("g++ main.cpp -lm -Wl,--stack=134217728 -O0 -std=c++11 -static-libstdc++ -static-libgcc -o main");
+    if (!New)
+    {
+        cin >> N;
+        for (int i = 1; i <= N; i++)
+            cin >> g[i] >> k[i] >> m[i];
+        cin >> M;
+        for (int i = 1; i <= M; i++)
+        {
+            cin >> user[i].s >> user[i].e >> user[i].cnt;
+            user[i].id = i;
+        }
+        for (int i = 1; i <= N; i++)
+        {
+            for (int j = 1; j <= M; j++)
+            {
+                cin >> latency[i][j];
+            }
+        }
+        cin >> a >> b;
+
+        for (int i = 1; i <= N; i++)
+            for (int j = 1; j <= g[i]; j++) // 初始化
+                for (int k = 0; k <= 200000; k++)
+                    NPU_size[i][j][k] = (m[i] - b) / a; // 确实应该向下取整，
+
+        for (int i = 1; i <= N; i++)
+        {
+            request_size[i] = min(NPU_size[i][1][1], 1000); // 表示应该向第i个服务器的NPU放入多大的样本数量
+        }
+        system("main.exe < .\\sample\\data.in > output.txt");
+    }
+
     srand(1); // 固定随机种子
 
     // 生成服务器种类 N ∈ [1, 10]
@@ -165,13 +198,12 @@ void brief_check()
 
 void calulate_score()
 {
+    
 }
 
 int main()
 {
-    data_generator();
-    system("g++ main.cpp -lm -Wl,--stack=134217728 -O0 -std=c++11 -static-libstdc++ -static-libgcc -o main");
-    system("main.exe < .\\sample\\data.in > output.txt");
+    data_loader_generator(0);
 
     ifstream in("output.txt");
     for (int i = 1; i <= M; i++)
@@ -187,7 +219,7 @@ int main()
     }
     in.close();
 
-    brief_check();
+    // brief_check();
 
     calulate_score();
     return 0;

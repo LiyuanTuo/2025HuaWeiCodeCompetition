@@ -219,9 +219,8 @@ int main()
     }
     in.close();
 
-    // brief_check();
+    brief_check();
 
     calulate_score();
     return 0;
 }
-// 洗衣服

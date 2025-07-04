@@ -22,23 +22,24 @@ void data_loader_generator(bool New)
     system("g++ main.cpp -lm -Wl,--stack=134217728 -O0 -std=c++11 -static-libstdc++ -static-libgcc -o main");
     if (!New)
     {
-        cin >> N;
+        ifstream in("sample\\data.in");
+        in >> N;
         for (int i = 1; i <= N; i++)
-            cin >> g[i] >> k[i] >> m[i];
-        cin >> M;
+            in >> g[i] >> k[i] >> m[i];
+        in >> M;
         for (int i = 1; i <= M; i++)
         {
-            cin >> user[i].s >> user[i].e >> user[i].cnt;
+            in >> user[i].s >> user[i].e >> user[i].cnt;
             user[i].id = i;
         }
         for (int i = 1; i <= N; i++)
         {
             for (int j = 1; j <= M; j++)
             {
-                cin >> latency[i][j];
+                in >> latency[i][j];
             }
         }
-        cin >> a >> b;
+        in >> a >> b;
 
         for (int i = 1; i <= N; i++)
             for (int j = 1; j <= g[i]; j++) // 初始化
@@ -49,7 +50,9 @@ void data_loader_generator(bool New)
         {
             request_size[i] = min(NPU_size[i][1][1], 1000); // 表示应该向第i个服务器的NPU放入多大的样本数量
         }
+        in.close();
         system("main.exe < .\\sample\\data.in > output.txt");
+        return;
     }
 
     srand(1); // 固定随机种子
@@ -58,7 +61,7 @@ void data_loader_generator(bool New)
     N = rand() % 10 + 1;
     for (int i = 1; i <= N; ++i)
     {
-        g[i] = rand() % 10 + 1;      // 1..10
+        g[i] = rand() % 10 + 1;      // 1..10  这里要把数据强化一下注意
         k[i] = rand() % 5 + 1;       // 1..5
         m[i] = rand() % 1001 + 1000; // 1000..2000
     }
@@ -113,6 +116,7 @@ void data_loader_generator(bool New)
     ofs << a << " " << b << "\n";
 
     ofs.close();
+    system("main.exe < .\\sample\\extra_data.in > output.txt");
 }
 
 void brief_check()
@@ -198,12 +202,11 @@ void brief_check()
 
 void calulate_score()
 {
-    
 }
 
 int main()
 {
-    data_loader_generator(0);
+    data_loader_generator(1);
 
     ifstream in("output.txt");
     for (int i = 1; i <= M; i++)

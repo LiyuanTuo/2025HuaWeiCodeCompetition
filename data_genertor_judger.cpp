@@ -2,6 +2,7 @@
 #include <fstream>
 #include <cstdlib>
 #include <vector>
+#include<ctime>
 #include <algorithm>
 using namespace std;
 int N, g[11], k[11], m[11], M, latency[11][501], a, b, NPU_size[11][11][200001], request_size[11];
@@ -19,6 +20,7 @@ vector<Plan> solution[501];
 
 void data_loader_generator(bool New)
 {
+    system("g++ not_full_NPU.cpp -lm -Wl,--stack=134217728 -O0 -std=c++11 -static-libstdc++ -static-libgcc -o not_full_NPU");
     system("g++ main.cpp -lm -Wl,--stack=134217728 -O0 -std=c++11 -static-libstdc++ -static-libgcc -o main");
     if (!New)
     {
@@ -52,16 +54,18 @@ void data_loader_generator(bool New)
         }
         in.close();
         system("main.exe < .\\sample\\data.in > output.txt");
+        system("not_full_NPU.exe < .\\sample\\data.in > not_full_NPU.txt");
+
         return;
     }
 
-    srand(1); // 固定随机种子
+    srand(time(0)); // 固定随机种子
 
     // 生成服务器种类 N ∈ [1, 10]
     N = rand() % 2 + 1;
     for (int i = 1; i <= N; ++i)
     {
-        g[i] = rand() % 2 + 1;      // 1..10  这里要把数据强化一下注意
+        g[i] = rand() % 2 + 1;       // 1..10  这里要把数据强化一下注意
         k[i] = rand() % 2 + 1;       // 1..5
         m[i] = rand() % 1001 + 1000; // 1000..2000
     }
@@ -117,6 +121,7 @@ void data_loader_generator(bool New)
 
     ofs.close();
     system("main.exe < .\\sample\\extra_data.in > output.txt");
+    system("not_full_NPU.exe < .\\sample\\extra_data.in > not_full_NPU.txt");
 }
 
 void brief_check()

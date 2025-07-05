@@ -31,14 +31,14 @@ struct User
         //     return cnt * double(Request_Time(server_index[id][0], id)) / request_size[server_index[id][0]] < other.cnt * double(Request_Time(server_index[other.id][0], other.id)) / request_size[server_index[other.id][0]];
         // else
         //     return s < other.s;
-        // if (cnt != other.cnt)       // 查完成度，必须查！查完之后发现在这个样例下完成度是差不多的
-        //     return cnt < other.cnt; // 一个-0.991136 一个-0.991093，优化后的完成度甚至还要差一些
-        // else
-        //     return s < other.s;
-        if(server_timecost[id][1] != server_timecost[other.id][1])
-            return server_timecost[id][1] < server_timecost[other.id][1];
+        if (cnt != other.cnt)       // 查完成度，必须查！查完之后发现在这个样例下完成度是差不多的
+            return cnt < other.cnt; // 一个-0.991136 一个-0.991093，优化后的完成度甚至还要差一些
         else
             return s < other.s;
+        // if(server_timecost[id][1] != server_timecost[other.id][1])
+        //     return server_timecost[id][1] < server_timecost[other.id][1];
+        // else
+        //     return s < other.s;
         //    return 1.0 * cnt / (1.0 * e - 1.0 * s) < 1.0 * other.cnt / (1.0 * other.e - 1.0 * other.s);
         // if (s != other.s)
         //     return s < other.s;
@@ -263,78 +263,89 @@ void solution()
     }
 }
 
+
 void monitor_NPU_size()
 {
-    // cout << "\n\n\n";
-    // int sumsize = 0;
-    // for (int i = 1; i <= N; i++)
-    // {
-    //     cout << "server " << i << " ";
-    //     for (int j = 1; j <= g[i]; j++)
-    //     {
-    //         int sumsize_i_j = 0;
-    //         for (int k = 0; k <= 135000; k++)
-    //         {
-    //             sumsize_i_j += (m[i] - b) / a - NPU_size[i][j][k];
-    //         }
-    //         cout << "NPU " << j << ": " << sumsize_i_j << " ";
-    //         sumsize += sumsize_i_j;
-    //     }
-    //     cout << "\n";
-    // }
-    // cout << "\n";
-    // int truesumsize = 0;
-    // for (int i = 1; i <= M; i++)
-    // {
-    //     int id = user[i].id;
-    //     for (Plan &j : ans[id])
-    //         truesumsize += j.Bj * (request_time(j.Bj, j.serverj, i) - latency[j.serverj][id]);
-    // }
-    // cout << "sumsize: " << sumsize << "  truesumsize: " << truesumsize << "\n\n\n";
-    // if (sumsize == truesumsize)
-    // {
-    //     cout << "Right";
-    // }
-    // else
-    // {
-    //     cout << "WRONG";
-    // }
-    ofstream out("monitor.txt");
+    cout << "\n\n\n";
+    int sumsize = 0;
     for (int i = 1; i <= N; i++)
     {
+        cout << "server " << i << " ";
         for (int j = 1; j <= g[i]; j++)
         {
-            for (int k = 0; k <= 5000; k++)
+            int sumsize_i_j = 0;
+            for (int k = 0; k <= 135000; k++)
             {
-                out << NPU_size[i][j][k] << " ";
+                sumsize_i_j += (m[i] - b) / a - NPU_size[i][j][k];
             }
-            out << "\n";
+            cout << "NPU " << j << ": " << sumsize_i_j << " ";
+            sumsize += sumsize_i_j;
         }
+        cout << "\n";
     }
-    out.close();
+    cout << "\n";
+    int truesumsize = 0;
+
+    sort(user + 1, user + M + 1, [](User &a, User &b)
+         { return a.id < b.id; });
+
+    for (int i = 1; i <= M; i++)
+    {
+        for (int &id : ans[i])
+            truesumsize += plan[id].Bj * (request_time(plan[id].Bj, plan[id].serverj, i) - latency[plan[id].serverj][i]);
+    }
+    cout << "sumsize: " << sumsize << "  truesumsize: " << truesumsize << "\n\n\n";
+    if (sumsize == truesumsize)
+    {
+        cout << "Right\n";
+    }
+    else
+    {
+        cout << "WRONG\n";
+    }
+
+    // ofstream out("monitor.txt");
+    // for (int i = 1; i <= N; i++)
+    // {
+    //     for (int j = 1; j <= g[i]; j++)
+    //     {
+    //         for (int k = 0; k <= 5000; k++)
+    //         {
+    //             out << NPU_size[i][j][k] << " ";
+    //         }
+    //         out << "\n";
+    //     }
+    // }
+    // out.close();
 
     // 这段代码检查任务完成情况
-    // sort(user + 1, user + M + 1, [](User &a, User &b)
-    //      { return a.id < b.id; });
-    // int latenum = 0;
-    // for (int i = 1; i <= M; i++)
-    // {
-    //     Plan &solu = plan[ans[i].back()];
-    //     if (solu.process_start + request_time(solu.Bj, solu.serverj, i) - latency[solu.serverj][i] > user[i].e)
-    //         latenum++;
-    // }
-    // cout << "\n\n\n"
-    //      << latenum << "\n\n\n";
+    int latenum = 0;
+    for (int i = 1; i <= M; i++)
+    {
+        Plan &solu = plan[ans[i].back()];
+        if (solu.process_start + request_time(solu.Bj, solu.serverj, i) - latency[solu.serverj][i] > user[i].e)
+            latenum++;
+    }
+    cout << "\n\n\n"
+         << "latenum: " << latenum << "\n\n\n";
 
+    double Score = 0.0, Highest_Score = 0.0; // pow(2, -1.0 * latenum / 100.0);
     // double average = 0;
-    // for (int i = 1; i <= M; i++)
-    // {
-    //     Plan &solu = plan[ans[i].back()];
-    //     int endid = solu.process_start + request_time(solu.Bj, solu.serverj, i) - latency[solu.serverj][i] - user[i].e;
-    //     average += 1.0 * endid / (user[i].e - user[i].s);
-    // }
+    for (int i = 1; i <= M; i++)
+    {
+        Plan &solu = plan[ans[i].back()];
+        int endid = solu.process_start + request_time(solu.Bj, solu.serverj, i) - latency[solu.serverj][i] - user[i].e;
+        Score += pow(2, -1.0 * endid / (user[i].e - user[i].s) / 100.0) * 10000.0;
+        // average += 1.0 * endid / (user[i].e - user[i].s);
+        Highest_Score += pow(2, 1.0 / 100.0) * 10000.0;
+    }
+    Score *= pow(2, -1.0 * latenum / 100.0);
+    cout << fixed << setprecision(0) << "Score: " << Score << "\n";
+    cout << fixed << setprecision(0) << "Highest_Score: " << Highest_Score << "\n";
+
     // cout << average / 500.0 << "\n";
 }
+
 //-0.992853
 int main()
 {
@@ -343,7 +354,7 @@ int main()
     sort_server();
     solution();
 
-    // monitor_NPU_size();
+    monitor_NPU_size();
     return 0;
 }
 // g++ main.cpp -std=c++11 -o main; get-Content .\sample\data.in | main.exe > output.txt

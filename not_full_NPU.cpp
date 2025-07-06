@@ -65,11 +65,11 @@ void get_argument_initial()
     for (int i = 1; i <= N; i++)
         for (int j = 1; j <= g[i]; j++) // 初始化
             for (int k = 0; k <= 135000; k++)
-                NPU_size[i][j][k] = (m[i] - b) / a; // 确实应该向下取整，
+                NPU_size[i][j][k] = m[i]; // 确实应该向下取整，
 
     for (int i = 1; i <= N; i++)
     {
-        request_size[i] = min(NPU_size[i][1][1], short(1000)); // 表示应该向第i个服务器的NPU放入多大的样本数量
+        request_size[i] = min((m[i] - b) / a, 1000); // 表示应该向第i个服务器的NPU放入多大的样本数量
     }
 }
 
@@ -153,7 +153,7 @@ void sort_server()
 bool check(int mid, int j, int k, int process_start, int time_process)
 {
     for (int p = 0; p < time_process; p++)
-        if (NPU_size[j][k][process_start + p] < mid)
+        if (NPU_size[j][k][process_start + p] < mid * a + b)
         {
             return 0;
             // process_start = process_start + p + 1;
@@ -185,7 +185,7 @@ void solution()
 
                     bool flag = 1;
                     for (int p = 0; p < time_process; p++)
-                        if (NPU_size[j][k][process_start + p] < l)
+                        if (NPU_size[j][k][process_start + p] < l * a + b)
                         {
                             flag = 0;
                             process_start = process_start + p + 1;
@@ -209,7 +209,7 @@ void solution()
                         // 也即是服务器接收到这个请求时间的上界 timej + latency[j][id] 是接收到这个请求时间的下界
                         for (int q = 0; q <= time_process - 1; q++)
                         {
-                            NPU_size[j][k][process_start + q] -= l; // 更新这个NPU_size
+                            NPU_size[j][k][process_start + q] -= l * a + b; // 更新这个NPU_size
                         }
 
                         int receive_time = timej + latency[j][id];
@@ -244,7 +244,7 @@ void solution()
                 {
                     int time_process = request_time(p.Bj, j, i) - latency[j][id];
                     for (int q = 0; q <= time_process - 1; q++)
-                        NPU_size[j][k][p.process_start + q] += p.Bj;
+                        NPU_size[j][k][p.process_start + q] += p.Bj * a + b;
                 }
             }
         }
@@ -254,7 +254,7 @@ void solution()
             request_id++;
             for (int k = j.process_start; k <= j.process_start + request_time(j.Bj, j.serverj, i) - latency[j.serverj][id] - 1; k++)
             {
-                NPU_size[j.serverj][j.NPUj][k] -= j.Bj;
+                NPU_size[j.serverj][j.NPUj][k] -= j.Bj * a + b;
             }
             plan[request_id] = j;
             receive_process[j.serverj][j.NPUj][j.timej + latency[j.serverj][id]].push_back(request_id);
@@ -282,25 +282,25 @@ void solution()
 
 void monitor_NPU_size()
 {
-    cout << "\n\n\n";
-    int sumsize = 0;
+    // cout << "\n\n\n";
+    long long sumsize = 0;
     for (int i = 1; i <= N; i++)
     {
-        cout << "server " << i << " ";
+        cerr << "server " << i << " ";
         for (int j = 1; j <= g[i]; j++)
         {
             int sumsize_i_j = 0;
             for (int k = 0; k <= 135000; k++)
             {
-                sumsize_i_j += (m[i] - b) / a - NPU_size[i][j][k];
+                sumsize_i_j += m[i] - NPU_size[i][j][k];
             }
-            cout << "NPU " << j << ": " << sumsize_i_j << " ";
+            cerr << "NPU " << j << ": " << sumsize_i_j << " ";
             sumsize += sumsize_i_j;
         }
-        cout << "\n";
+        cerr << "\n";
     }
-    cout << "\n";
-    int truesumsize = 0;
+    cerr << "\n";
+    long long truesumsize = 0;
 
     sort(user + 1, user + M + 1, [](User &a, User &b)
          { return a.id < b.id; });
@@ -308,16 +308,16 @@ void monitor_NPU_size()
     for (int i = 1; i <= M; i++)
     {
         for (int &id : ans[i])
-            truesumsize += plan[id].Bj * (request_time(plan[id].Bj, plan[id].serverj, i) - latency[plan[id].serverj][i]);
+            truesumsize += (plan[id].Bj * a + b) * (request_time(plan[id].Bj, plan[id].serverj, i) - latency[plan[id].serverj][i]);
     }
-    cout << "sumsize: " << sumsize << "  truesumsize: " << truesumsize << "\n\n\n";
+    //cerr << "sumsize: " << sumsize << "  truesumsize: " << truesumsize << "\n";
     if (sumsize == truesumsize)
     {
-        cout << "Right\n";
+        cerr << "Right\n";
     }
     else
     {
-        cout << "WRONG\n";
+        cerr << "WRONG\n";
     }
 
     // ofstream out("monitor.txt");
@@ -342,8 +342,8 @@ void monitor_NPU_size()
         if (solu.process_start + request_time(solu.Bj, solu.serverj, i) - latency[solu.serverj][i] > user[i].e)
             latenum++;
     }
-    cout << "\n\n\n"
-         << "latenum: " << latenum << "\n\n\n";
+    cerr << "\n"
+         << "latenum: " << latenum << "\n";
 
     double Score = 0.0, Highest_Score = 0.0; // pow(2, -1.0 * latenum / 100.0);
     // double average = 0;
@@ -356,8 +356,8 @@ void monitor_NPU_size()
         Highest_Score += pow(2, 1.0 / 100.0) * 10000.0;
     }
     Score *= pow(2, -1.0 * latenum / 100.0);
-    cout << fixed << setprecision(0) << "Score: " << Score << "\n";
-    cout << fixed << setprecision(0) << "Highest_Score: " << Highest_Score << "\n";
+    cerr << fixed << setprecision(0) << "Score: " << Score << "\n";
+    cerr << fixed << setprecision(0) << "Highest_Score: " << Highest_Score << "\n";
 
     // cout << average / 500.0 << "\n";
 }

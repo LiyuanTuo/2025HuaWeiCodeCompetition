@@ -5,3 +5,5 @@ sample\README.md
 .gitignore
 test.txt
 test.cpp
+extra_data.in
+not_full_NPU.txt

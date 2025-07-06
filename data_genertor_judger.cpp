@@ -58,13 +58,13 @@ void data_loader_generator(bool New)
             {
                 NPU_request_count[i][j] = 0;
                 for (int k = 0; k <= 200000; k++)
-                    NPU_size[i][j][k] = (m[i] - b) / a; // 确实应该向下取整，
+                    NPU_size[i][j][k] = m[i]; // 确实应该向下取整，
             }
                
 
         for (int i = 1; i <= N; i++)
         {
-            request_size[i] = min(NPU_size[i][1][1], 1000); // 表示应该向第i个服务器的NPU放入多大的样本数量
+            request_size[i] = min((m[i] - b) / a, 1000); // 表示应该向第i个服务器的NPU放入多大的样本数量
         }
         in.close();
         system("main.exe < .\\sample\\data.in > output.txt");
@@ -79,7 +79,7 @@ void data_loader_generator(bool New)
     N = rand() % 2 + 1;
     for (int i = 1; i <= N; ++i)
     {
-        g[i] = rand() % 2 + 1;       // 1..10  这里要把数据强化一下注意
+        g[i] = rand() % 2 + 2;       // 1..10  这里要把数据强化一下注意
         k[i] = rand() % 2 + 1;       // 1..5
         m[i] = rand() % 1001 + 1000; // 1000..2000
     }
@@ -92,7 +92,7 @@ void data_loader_generator(bool New)
     {
         user[i].id = i;
         // cnt ∈ [1, 6000]
-        user[i].cnt = rand() % 3000 + 3001;
+        user[i].cnt = rand() % 2000 + 4001;
         int maxS = 60000 - user[i].cnt * 5;
         user[i].s = rand() % (maxS + 1);
         user[i].e = user[i].s + 5 * user[i].cnt + rand() % (60000 - user[i].s - 5 * user[i].cnt + 1);
@@ -109,7 +109,7 @@ void data_loader_generator(bool New)
     }
 
     // 生成显存系数 a ∈ [10,20], b ∈ [100,200]
-    a = rand() % 11 + 10;   // 10..20
+    a = rand() % 5 + 16;   // 10..20
     b = rand() % 101 + 100; // 100..200
 
     // 写入文件 ./sample/extra_data.in
@@ -138,11 +138,11 @@ void data_loader_generator(bool New)
         {
             NPU_request_count[i][j] = 0;
             for (int k = 0; k <= 200000; k++)
-                NPU_size[i][j][k] = (m[i] - b) / a; // 确实应该向下取整，
+                NPU_size[i][j][k] = m[i]; // 确实应该向下取整，
         }
     for (int i = 1; i <= N; i++)
     {
-         request_size[i] = min(NPU_size[i][1][1], 1000); // 表示应该向第i个服务器的NPU放入多大的样本数量
+         request_size[i] = min((m[i] - b) / a, 1000); // 表示应该向第i个服务器的NPU放入多大的样本数量
     }
     ofs.close();
     system("main.exe < .\\sample\\extra_data.in > output.txt");
@@ -354,7 +354,7 @@ int main()
 {
     data_loader_generator(1);
 
-    ifstream in("output.txt");
+    ifstream in("not_full_NPU.txt");
     for (int i = 1; i <= M; i++)
     {
         int Ti;

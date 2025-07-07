@@ -147,6 +147,7 @@ void data_loader_generator(bool New)
     ofs.close();
     system("main.exe < .\\sample\\extra_data.in > output.txt");
     system("not_full_NPU.exe < .\\sample\\extra_data.in > not_full_NPU.txt");
+    //cout<<"data_end"<<endl;
 }
 
 void brief_check()
@@ -304,14 +305,15 @@ void NPU_request_process()
                             }
                             else
                             {
-                                if (NPU_request_list[i][j][count].B <= NPU_size[i][j][t])
+                                int temp_memory=a*NPU_request_list[i][j][count].B+b;
+                                if (temp_memory <= NPU_size[i][j][t])
                                 {
                                     temp_flag = 1;
                                     NPU_request_list[i][j][count].flag = 1;
                                     int end_time = t + process_time_calculate(i, NPU_request_list[i][j][count].B);
                                     for (int count2 = t; count2 < end_time; count2++)
                                     {
-                                        NPU_size[i][j][count2] -= NPU_request_list[i][j][count].B;
+                                        NPU_size[i][j][count2] -= temp_memory;
                                     }
                                     user[NPU_request_list[i][j][count].user].end_time = max(user[NPU_request_list[i][j][count].user].end_time, end_time);
                                 }
@@ -374,6 +376,7 @@ int main()
             last_server = plan.serverj;
             last_NPU = plan.NPUj;
         }
+        //cout<<"append_end"<<endl;
     }
     in.close();
     brief_check();

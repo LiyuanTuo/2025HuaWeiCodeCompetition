@@ -3,7 +3,7 @@
 #include <fstream>
 #include <cstdlib>
 #include <vector>
-#include<ctime>
+#include <ctime>
 #include <algorithm>
 #include <iomanip>
 #include <time.h>
@@ -13,7 +13,7 @@ int N, g[11], k[11], m[11], M, latency[11][501], a, b, NPU_size[11][11][200001],
 struct NPU_Request_List
 {
     int user, B, received_time, flag;
-}NPU_request_list[11][11][300001];
+} NPU_request_list[11][11][300001];
 
 struct User
 {
@@ -29,11 +29,12 @@ vector<Plan> solution[501];
 
 void data_loader_generator(bool New)
 {
-    system("g++ not_full_NPU.cpp -lm -Wl,--stack=134217728 -O0 -std=c++11 -static-libstdc++ -static-libgcc -o not_full_NPU");
-    system("g++ main.cpp -lm -Wl,--stack=134217728 -O0 -std=c++11 -static-libstdc++ -static-libgcc -o main");
+    system("g++ not_full_NPU.cpp -lm -Wl,--stack=536870912 -O0 -std=c++11 -static-libstdc++ -static-libgcc -o not_full_NPU");
+    system("g++ search_optimize.cpp -lm -Wl,--stack=536870912 -O0 -std=c++11 -static-libstdc++ -static-libgcc -o search_optimize");
+
     if (!New)
     {
-        ifstream in("sample\\data.in");
+        ifstream in("sample\\extra_data.in");
         in >> N;
         for (int i = 1; i <= N; i++)
             in >> g[i] >> k[i] >> m[i];
@@ -60,15 +61,14 @@ void data_loader_generator(bool New)
                 for (int k = 0; k <= 200000; k++)
                     NPU_size[i][j][k] = m[i]; // 确实应该向下取整，
             }
-               
 
         for (int i = 1; i <= N; i++)
         {
             request_size[i] = min((m[i] - b) / a, 1000); // 表示应该向第i个服务器的NPU放入多大的样本数量
         }
         in.close();
-        system("main.exe < .\\sample\\data.in > output.txt");
-        system("not_full_NPU.exe < .\\sample\\data.in > not_full_NPU.txt");
+        system("not_full_NPU.exe < .\\sample\\extra_data.in > not_full_NPU.txt");
+        system("search_optimize.exe < .\\sample\\extra_data.in > search_optimize.txt");
 
         return;
     }
@@ -79,13 +79,13 @@ void data_loader_generator(bool New)
     N = rand() % 2 + 1;
     for (int i = 1; i <= N; ++i)
     {
-        g[i] = rand() % 2 + 2;       // 1..10  这里要把数据强化一下注意
+        g[i] = rand() % 2 + 1;       // 1..10  这里要把数据强化一下注意
         k[i] = rand() % 2 + 1;       // 1..5
         m[i] = rand() % 1001 + 1000; // 1000..2000
     }
 
     // 生成用户数量 M ∈ [1, 500]
-    M = rand() % 100 + 401;
+    M = rand() % 100 + 201;
 
     // 为每个用户生成 s, e, cnt
     for (int i = 1; i <= M; ++i)
@@ -109,7 +109,7 @@ void data_loader_generator(bool New)
     }
 
     // 生成显存系数 a ∈ [10,20], b ∈ [100,200]
-    a = rand() % 5 + 16;   // 10..20
+    a = rand() % 5 + 16;    // 10..20
     b = rand() % 101 + 100; // 100..200
 
     // 写入文件 ./sample/extra_data.in
@@ -142,12 +142,13 @@ void data_loader_generator(bool New)
         }
     for (int i = 1; i <= N; i++)
     {
-         request_size[i] = min((m[i] - b) / a, 1000); // 表示应该向第i个服务器的NPU放入多大的样本数量
+        request_size[i] = min((m[i] - b) / a, 1000); // 表示应该向第i个服务器的NPU放入多大的样本数量
     }
     ofs.close();
-    system("main.exe < .\\sample\\extra_data.in > output.txt");
     system("not_full_NPU.exe < .\\sample\\extra_data.in > not_full_NPU.txt");
-    //cout<<"data_end"<<endl;
+    system("search_optimize.exe < .\\sample\\extra_data.in > search_optimize.txt");
+
+    // cout<<"data_end"<<endl;
 }
 
 void brief_check()
@@ -228,7 +229,7 @@ void brief_check()
                 cout << "User id " << i << "    Invalid NPU Index(NPUj > g[serverj] or NPUj < 1)";
             }
     }
-    cout << "Success"<<endl;
+    cout << "\nSuccess" << endl;
 }
 
 double h_x(double x)
@@ -256,7 +257,6 @@ bool cmp(NPU_Request_List l1, NPU_Request_List l2)
     if (l1.received_time == l2.received_time)
     {
         return l1.user < l2.user;
-
     }
     else
     {
@@ -305,7 +305,7 @@ void NPU_request_process()
                             }
                             else
                             {
-                                int temp_memory=a*NPU_request_list[i][j][count].B+b;
+                                int temp_memory = a * NPU_request_list[i][j][count].B + b;
                                 if (temp_memory <= NPU_size[i][j][t])
                                 {
                                     temp_flag = 1;
@@ -321,7 +321,6 @@ void NPU_request_process()
                         }
                     }
                 }
-
             }
         }
     }
@@ -356,7 +355,7 @@ int main()
 {
     data_loader_generator(1);
 
-    ifstream in("not_full_NPU.txt");
+    ifstream in("search_optimize.txt");
     for (int i = 1; i <= M; i++)
     {
         int Ti;
@@ -372,11 +371,11 @@ int main()
             {
                 user[j].move++;
             }
-            append_request(i, plan.timej , plan.serverj , plan.NPUj , plan.Bj);
+            append_request(i, plan.timej, plan.serverj, plan.NPUj, plan.Bj);
             last_server = plan.serverj;
             last_NPU = plan.NPUj;
         }
-        //cout<<"append_end"<<endl;
+        // cout<<"append_end"<<endl;
     }
     in.close();
     brief_check();
@@ -386,5 +385,29 @@ int main()
     {
         cout << "The score you get of this sample is " << fixed << setprecision(0) << score << endl;
     }
+
+    ofstream out("monitor_judge.txt");
+    for (int i = 1; i <= N; i++)
+    {
+        for (int j = 1; j <= g[i]; j++)
+        {
+            for (int k = 0; k <= 100000; k++)
+            {
+                out << NPU_size[i][j][k] << " ";
+            }
+            out << "\n";
+        }
+    }
+    out.close();
+
+    if (system("fc monitor_judge.txt search_optimize_monitor.txt"))
+    {
+        cout << "\nmonitor is not the same\n";
+    }
+    else
+    {
+        cout << "\nmonitor is same\n";
+    }
+
     return 0;
 }

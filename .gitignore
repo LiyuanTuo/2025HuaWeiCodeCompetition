@@ -6,4 +6,4 @@ sample\README.md
 test.txt
 test.cpp
 extra_data.in
-not_full_NPU.txt
+*.txt

@@ -5,8 +5,8 @@ using namespace std;
 // 单个npu完成上述大小范围的样本所需时间的范围是[2, 14]
 // 传输时间范围是[10, 20]
 int N, g[11], k[11], m[11], M, latency[11][501], a, b, server_timecost[501][11], request_size[11], request_id;
-short NPU_size[11][11][135001];              // 有极端数据，13.5万是安全的
-vector<int> receive_process[11][11][135001]; // 内存储请求的id
+short NPU_size[11][11][200001];              // 有极端数据，13.5万是安全的
+vector<int> receive_process[11][11][200001]; // 内存储请求的id
 int which_gpu[11];                           // which_gpu[i]用于表示第i个服务器应该让哪一个gpu处理传送至服务器i的请求
 
 struct Plan
@@ -69,7 +69,7 @@ void get_argument_initial()
 
     for (int i = 1; i <= N; i++)
         for (int j = 1; j <= g[i]; j++) // 初始化
-            for (int k = 0; k <= 135000; k++)
+            for (int k = 0; k <= 200000; k++)
                 NPU_size[i][j][k] = m[i]; // 确实应该向下取整，
 
     for (int i = 1; i <= N; i++)
@@ -245,8 +245,7 @@ void solution()
         }
         Plan temp = Fast_Solu[0];
         which_gpu[temp.serverj] = which_gpu[temp.serverj] % g[temp.serverj] + 1;
-        //cout << "user : " << i << "finished\n";
-
+        cout << "user : " << i << "finished\n";
     }
 
     for (int i = 1; i <= M; i++)
@@ -255,12 +254,7 @@ void solution()
 
         for (int j : ans[i])
             cout << plan[j].timej << " " << plan[j].serverj << " " << plan[j].NPUj << " " << plan[j].Bj << " ";
-        // for (int j = 1; j <= ans[i].size() - 1; j++)
-        // {                       danger ans[i].size() - 1
-        //     if (ans[i][j].timej - ans[i][j - 1].timej >= latency[ans[i][j - 1].serverj][i] + 1)
-        //         cout << "OK " << latency[ans[i][j - 1].serverj][i] + 1  << " ";
-        //     else cout <<"Wrong ";
-        // }
+        
         cout << "\n";
     }
 }
@@ -276,7 +270,7 @@ void monitor_NPU_size()
         for (int j = 1; j <= g[i]; j++)
         {
             int sumsize_i_j = 0;
-            for (int k = 0; k <= 135000; k++)
+            for (int k = 0; k <= 200000; k++)
             {
                 sumsize_i_j += m[i] - NPU_size[i][j][k];
             }
@@ -305,20 +299,6 @@ void monitor_NPU_size()
     {
         cerr << "WRONG\n";
     }
-
-    // ofstream out("monitor.txt");
-    // for (int i = 1; i <= N; i++)
-    // {
-    //     for (int j = 1; j <= g[i]; j++)
-    //     {
-    //         for (int k = 0; k <= 5000; k++)
-    //         {
-    //             out << NPU_size[i][j][k] << " ";
-    //         }
-    //         out << "\n";
-    //     }
-    // }
-    // out.close();
 
     // 这段代码检查任务完成情况
     int latenum = 0;

@@ -30,7 +30,7 @@ vector<Plan> solution[501];
 void data_loader_generator(bool New)
 {
     system("g++ not_full_NPU.cpp -lm -Wl,--stack=536870912 -O0 -std=c++11 -static-libstdc++ -static-libgcc -o not_full_NPU");
-    system("g++ search_optimize.cpp -lm -Wl,--stack=536870912 -O0 -std=c++11 -static-libstdc++ -static-libgcc -o search_optimize");
+    system("g++ Migrate_Optimize.cpp -lm -Wl,--stack=536870912 -O0 -std=c++11 -static-libstdc++ -static-libgcc -o Migrate_Optimize");
 
     if (!New)
     {
@@ -68,7 +68,7 @@ void data_loader_generator(bool New)
         }
         in.close();
         system("not_full_NPU.exe < .\\sample\\extra_data.in > not_full_NPU.txt");
-        system("search_optimize.exe < .\\sample\\extra_data.in > search_optimize.txt");
+        system("Migrate_Optimize.exe < .\\sample\\extra_data.in > Migrate_Optimize.txt");
 
         return;
     }
@@ -76,26 +76,26 @@ void data_loader_generator(bool New)
     srand(time(0)); // 固定随机种子
 
     // 生成服务器种类 N ∈ [1, 10]
-    N = rand() % 2 + 1;
+    N = rand() % 1 + 1;
     for (int i = 1; i <= N; ++i)
     {
-        g[i] = rand() % 2 + 1;       // 1..10  这里要把数据强化一下注意
-        k[i] = rand() % 2 + 1;       // 1..5
+        g[i] = rand() % 1 + 1;       // 1..10  这里要把数据强化一下注意
+        k[i] = rand() % 3 + 1;       // 1..5
         m[i] = rand() % 1001 + 1000; // 1000..2000
     }
 
     // 生成用户数量 M ∈ [1, 500]
-    M = rand() % 100 + 201;
+    M = rand() % 301 + 200;
 
     // 为每个用户生成 s, e, cnt
     for (int i = 1; i <= M; ++i)
     {
         user[i].id = i;
         // cnt ∈ [1, 6000]
-        user[i].cnt = rand() % 2000 + 4001;
-        int maxS = 60000 - user[i].cnt * 5;
+        user[i].cnt = rand() % 4000 + 2001;
+        int maxS = 60000 - user[i].cnt * 10;
         user[i].s = rand() % (maxS + 1);
-        user[i].e = user[i].s + 5 * user[i].cnt + rand() % (60000 - user[i].s - 5 * user[i].cnt + 1);
+        user[i].e = user[i].s + 5 * user[i].cnt + rand() % (60000 - user[i].s - 5 * user[i].cnt + 1) / 2;
         user[i].end_time = 0;
     }
 
@@ -146,7 +146,7 @@ void data_loader_generator(bool New)
     }
     ofs.close();
     system("not_full_NPU.exe < .\\sample\\extra_data.in > not_full_NPU.txt");
-    system("search_optimize.exe < .\\sample\\extra_data.in > search_optimize.txt");
+    system("Migrate_Optimize.exe < .\\sample\\extra_data.in > Migrate_Optimize.txt");
 
     // cout<<"data_end"<<endl;
 }
@@ -353,9 +353,9 @@ double score_calculate()
 
 int main()
 {
-    data_loader_generator(1);
+    data_loader_generator(0);
 
-    ifstream in("search_optimize.txt");
+    ifstream in("Migrate_Optimize.txt");
     for (int i = 1; i <= M; i++)
     {
         int Ti;
@@ -369,7 +369,7 @@ int main()
             solution[i].push_back(plan);
             if (last_NPU != -1 and last_server != -1 and (last_server != plan.serverj or last_NPU != plan.NPUj))
             {
-                user[j].move++;
+                user[i].move++;
             }
             append_request(i, plan.timej, plan.serverj, plan.NPUj, plan.Bj);
             last_server = plan.serverj;
@@ -386,7 +386,7 @@ int main()
         cout << "The score you get of this sample is " << fixed << setprecision(0) << score << endl;
     }
 
-    ofstream out("monitor_judge.txt");
+    ofstream out("judge_monitor.txt");
     for (int i = 1; i <= N; i++)
     {
         for (int j = 1; j <= g[i]; j++)
@@ -398,9 +398,19 @@ int main()
             out << "\n";
         }
     }
+
+    sort(user + 1, user + M + 1, [](User &a, User &b)
+         { if (a.cnt != b.cnt)       // 查完成度，必须查！查完之后发现在这个样例下完成度是差不多的
+            return a.cnt < b.cnt; // 一个-0.991136 一个-0.991093，优化后的完成度甚至还要差一些
+        else
+            return a.s < b.s; });
+    for(int i = 1; i <= M; i++)
+    {
+        out << user[i].end_time - user[i].e << "\n";
+    }
     out.close();
 
-    if (system("fc monitor_judge.txt search_optimize_monitor.txt"))
+    if (system("fc judge_monitor.txt Migrate_Optimize_monitor.txt"))
     {
         cout << "\nmonitor is not the same\n";
     }

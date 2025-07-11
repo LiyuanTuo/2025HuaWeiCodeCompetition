@@ -4,6 +4,5 @@ output.txt
 sample\README.md
 .gitignore
 test.txt
-test.cpp
 extra_data.in
 *.txt

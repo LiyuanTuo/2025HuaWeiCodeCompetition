@@ -9,7 +9,7 @@
 #include <time.h>
 using namespace std;
 int N, g[11], k[11], m[11], M, latency[11][501], a, b, NPU_size[11][11][200001], request_size[11], server_index[501][11], NPU_request_count[11][11];
-
+string program1, program2;
 struct NPU_Request_List
 {
     int user, B, received_time, flag;
@@ -29,9 +29,13 @@ vector<Plan> solution[501];
 
 void data_loader_generator(bool New)
 {
-    system("g++ not_full_NPU.cpp -lm -Wl,--stack=536870912 -O0 -std=c++11 -static-libstdc++ -static-libgcc -o not_full_NPU");
-    system("g++ Migrate_Optimize.cpp -lm -Wl,--stack=536870912 -O0 -std=c++11 -static-libstdc++ -static-libgcc -o Migrate_Optimize");
+    string temp1 = "g++ " + program1 + ".cpp -lm -Wl,--stack=536870912 -O0 -std=c++11 -static-libstdc++ -static-libgcc -o " + program1;
+    string temp2 = "g++ " + program2 + ".cpp -lm -Wl,--stack=536870912 -O0 -std=c++11 -static-libstdc++ -static-libgcc -o " + program2;
+    system(temp1.c_str());
+    system(temp2.c_str());
 
+    temp1 = program1 + ".exe < .\\sample\\extra_data.in > " + program1 + ".txt";
+    temp2 = program2 + ".exe < .\\sample\\extra_data.in > " + program2 + ".txt";
     if (!New)
     {
         ifstream in("sample\\extra_data.in");
@@ -67,8 +71,8 @@ void data_loader_generator(bool New)
             request_size[i] = min((m[i] - b) / a, 1000); // 表示应该向第i个服务器的NPU放入多大的样本数量
         }
         in.close();
-        system("not_full_NPU.exe < .\\sample\\extra_data.in > not_full_NPU.txt");
-        system("Migrate_Optimize.exe < .\\sample\\extra_data.in > Migrate_Optimize.txt");
+        system(temp1.c_str());
+        system(temp2.c_str());
 
         return;
     }
@@ -76,23 +80,23 @@ void data_loader_generator(bool New)
     srand(time(0)); // 固定随机种子
 
     // 生成服务器种类 N ∈ [1, 10]
-    N = rand() % 1 + 1;
+    N = rand() % 2 + 2;
     for (int i = 1; i <= N; ++i)
     {
-        g[i] = rand() % 1 + 1;       // 1..10  这里要把数据强化一下注意
-        k[i] = rand() % 3 + 1;       // 1..5
+        g[i] = rand() % 2 + 2;       // 1..10  这里要把数据强化一下注意
+        k[i] = rand() % 2 + 1;       // 1..5
         m[i] = rand() % 1001 + 1000; // 1000..2000
     }
 
     // 生成用户数量 M ∈ [1, 500]
-    M = rand() % 301 + 200;
+    M = rand() % 101 + 400;
 
     // 为每个用户生成 s, e, cnt
     for (int i = 1; i <= M; ++i)
     {
         user[i].id = i;
         // cnt ∈ [1, 6000]
-        user[i].cnt = rand() % 4000 + 2001;
+        user[i].cnt = rand() % 2000 + 4001;
         int maxS = 60000 - user[i].cnt * 10;
         user[i].s = rand() % (maxS + 1);
         user[i].e = user[i].s + 5 * user[i].cnt + rand() % (60000 - user[i].s - 5 * user[i].cnt + 1) / 2;
@@ -145,9 +149,9 @@ void data_loader_generator(bool New)
         request_size[i] = min((m[i] - b) / a, 1000); // 表示应该向第i个服务器的NPU放入多大的样本数量
     }
     ofs.close();
-    system("not_full_NPU.exe < .\\sample\\extra_data.in > not_full_NPU.txt");
-    system("Migrate_Optimize.exe < .\\sample\\extra_data.in > Migrate_Optimize.txt");
-
+    
+    system(temp1.c_str());
+    system(temp2.c_str());
     // cout<<"data_end"<<endl;
 }
 
@@ -353,9 +357,10 @@ double score_calculate()
 
 int main()
 {
-    data_loader_generator(0);
-
-    ifstream in("Migrate_Optimize.txt");
+    program1 = "not_full_NPU";
+    program2 = "test";
+    data_loader_generator(1);
+    ifstream in(program2 + ".txt");
     for (int i = 1; i <= M; i++)
     {
         int Ti;
@@ -386,38 +391,29 @@ int main()
         cout << "The score you get of this sample is " << fixed << setprecision(0) << score << endl;
     }
 
-    ofstream out("judge_monitor.txt");
-    for (int i = 1; i <= N; i++)
-    {
-        for (int j = 1; j <= g[i]; j++)
-        {
-            for (int k = 0; k <= 100000; k++)
-            {
-                out << NPU_size[i][j][k] << " ";
-            }
-            out << "\n";
-        }
-    }
+    // ofstream out("judge_monitor.txt");
+    // for (int i = 1; i <= N; i++)
+    // {
+    //     for (int j = 1; j <= g[i]; j++)
+    //     {
+    //         for (int k = 0; k <= 100000; k++)
+    //         {
+    //             out << NPU_size[i][j][k] << " ";
+    //         }
+    //         out << "\n";
+    //     }
+    // }
+    // out.close();
 
-    sort(user + 1, user + M + 1, [](User &a, User &b)
-         { if (a.cnt != b.cnt)       // 查完成度，必须查！查完之后发现在这个样例下完成度是差不多的
-            return a.cnt < b.cnt; // 一个-0.991136 一个-0.991093，优化后的完成度甚至还要差一些
-        else
-            return a.s < b.s; });
-    for(int i = 1; i <= M; i++)
-    {
-        out << user[i].end_time - user[i].e << "\n";
-    }
-    out.close();
-
-    if (system("fc judge_monitor.txt Migrate_Optimize_monitor.txt"))
-    {
-        cout << "\nmonitor is not the same\n";
-    }
-    else
-    {
-        cout << "\nmonitor is same\n";
-    }
+    // string temp = "fc judge_monitor.txt " + program2 + "_monitor.txt";
+    // if (system(temp.c_str()))
+    // {
+    //     cout << "\nmonitor is not the same\n";
+    // }
+    // else
+    // {
+    //     cout << "\nmonitor is same\n";
+    // }
 
     return 0;
 }

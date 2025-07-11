@@ -94,58 +94,9 @@ void sort_server()
         sort(server_index[i] + 1, server_index[i] + N + 1, [i](int server_index1, int server_index2)
              { return double(request_time(request_size[server_index1], server_index1, i)) / request_size[server_index1] <
                       double(request_time(request_size[server_index2], server_index2, i)) / request_size[server_index2]; }); // 按照每个对象块的平均处理时间排序
-        // cout << "user_" << i << ":";
-        // for (int j = 1; j <= N; j++)
-        // {
-        //     cout << server_index[i][j] << " ";
-        // }
-        // cout << endl;
     }
 
-    // for (int i = 1; i <= M; i++)
-    // {
-    //     for (int j = 1; j <= N; j++)
-    //     {
-    //         int process_time = (int)ceil(sqrt(request_size[j]) / k[j]);
-    //         int Ti = (int)ceil(1.0 * user[i].cnt / request_size[j]);
-    //         if (process_time <= latency[j][i] + 1)
-    //         {
-    //             server_timecost[i][j] = Ti * (latency[j][i] + 1) - 1 +
-    //                                     (int)ceil(sqrt(user[i].cnt - (Ti - 1) * request_size[j]) / k[j]);
-    //         }
-    //         else
-    //         {
-    //             server_timecost[i][j] = latency[j][i] + (Ti - 1) * (int)ceil(sqrt(request_size[j]) / k[j]) +
-    //                                     (int)ceil(sqrt(user[i].cnt - (Ti - 1) * request_size[j]) / k[j]);
-    //         }
-    //     }
-    // }
-    // cout << "Test\n";
-    // for (int i = 1; i <= M; i++)
-    // {
-    //     cout << "user_" << i << ":";
-    //     for (int j = 1; j <= N; j++)
-    //     {
-    //         cout << server_timecost[i][j] << " ";
-    //     }
-    //     cout << endl;
-    //     sort(server_timecost[i] + 1, server_timecost[i] + N + 1);
-    //     cout << "      :";
-    //     for (int j = 1; j <= N; j++)
-    //     {
-    //         cout << server_timecost[i][j] << " ";
-    //     }
-    //     cout << endl;
-    // }
-
     sort(user + 1, user + 1 + M);
-
-    // for(int i = 1; i <= M; i++)
-    // {
-    //     cout << "user " << user[i].id << ":  ";
-    //     cout << user[i].cnt << "\n";
-    // }
-    // cout << endl;
     return;
 }
 
@@ -192,12 +143,12 @@ void solution()
                                 }
                         }
 
-                        if (1.0 * ((ans[id].size() != 0) + process_start + time_process - timej) / pow(1.0 * size, 1.8) < Fast_effiective)
+                        if (1.0 * (process_start + time_process - timej) / pow(1.0 * size, 1.0) < Fast_effiective)
                         {
-                            Fast_effiective = 1.0 * (process_start + time_process - timej) / pow(1.0 * size, 1.8);
+                            Fast_effiective = 1.0 * (process_start + time_process - timej) / pow(1.0 * size, 1.0);
                             best_size = size, best_server = j, best_npu = k, pro_time = process_start;
                         }
-                        else if(1.0 * ((ans[id].size() != 0) + process_start + time_process - timej) / pow(1.0 * size, 1.8) == Fast_effiective && size > best_size)
+                        else if(1.0 * (process_start + time_process - timej) / pow(1.0 * size, 1.0) == Fast_effiective && size > best_size)
                         {
                             best_size = size, best_server = j, best_npu = k, pro_time = process_start;
                         }
@@ -247,25 +198,25 @@ void solution()
 
 void monitor_NPU_size()
 {
-    ofstream out("Migrate_Optimize_monitor.txt");
-    for (int i = 1; i <= N; i++)
-    {
-        for (int j = 1; j <= g[i]; j++)
-        {
-            for (int k = 0; k <= 100000; k++)
-            {
-                out << NPU_size[i][j][k] << " ";
-            }
-            out << "\n";
-        }
-    }
-    for (int i = 1; i <= M; i++)
-    {
-        int id = user[i].id;
-        Plan &solu = plan[ans[id].back()];
-        int endid = solu.process_start + request_time(solu.Bj, solu.serverj, i) - latency[solu.serverj][id] - user[i].e;
-        out << endid << "\n";
-    }
+    // ofstream out("Migrate_Optimize_monitor.txt");
+    // for (int i = 1; i <= N; i++)
+    // {
+    //     for (int j = 1; j <= g[i]; j++)
+    //     {
+    //         for (int k = 0; k <= 100000; k++)
+    //         {
+    //             out << NPU_size[i][j][k] << " ";
+    //         }
+    //         out << "\n";
+    //     }
+    // }
+    // for (int i = 1; i <= M; i++)
+    // {
+    //     int id = user[i].id;
+    //     Plan &solu = plan[ans[id].back()];
+    //     int endid = solu.process_start + request_time(solu.Bj, solu.serverj, i) - latency[solu.serverj][id] - user[i].e;
+    //     out << endid << "\n";
+    // }
     cerr << "Migrate_Optimize:\n\n";
     long long sumsize = 0;
     for (int i = 1; i <= N; i++)
@@ -316,7 +267,6 @@ void monitor_NPU_size()
          << "latenum: " << latenum << "\n";
 
     double Score = 0.0, Highest_Score = 0.0; // pow(2, -1.0 * latenum / 100.0);
-    // double average = 0;
     for (int i = 1; i <= M; i++)
     {
         int move = 0;
@@ -330,14 +280,12 @@ void monitor_NPU_size()
         Plan &solu = plan[ans[i].back()];
         int endid = solu.process_start + request_time(solu.Bj, solu.serverj, i) - latency[solu.serverj][i] - user[i].e;
         Score += pow(2, -1.0 * endid / (user[i].e - user[i].s) / 100.0) * 10000.0 * pow(2, -1.0 * move / 200.0);
-        // average += 1.0 * endid / (user[i].e - user[i].s);
         Highest_Score += pow(2, 1.0 / 100.0) * 10000.0;
     }
     Score *= pow(2, -1.0 * latenum / 100.0);
     cerr << fixed << setprecision(0) << "Score: " << Score << "\n";
     cerr << fixed << setprecision(0) << "Highest_Score: " << Highest_Score << "\n\n";
     
-    // cout << average / 500.0 << "\n";
 }
 //-0.992853
 int main()
@@ -350,4 +298,4 @@ int main()
     monitor_NPU_size();
     return 0;
 }
-// g++ main.cpp -std=c++11 -o main; get-Content .\sample\data.in | main.exe > output.txt
+// g++ Migrate_Optimize.cpp -std=c++11 -o Migrate_Optimize; get-Content .\sample\extra_data.in | Migrate_Optimize.exe > Migrate_Optimize.txt

@@ -150,6 +150,7 @@ void sort_server()
     return;
 }
 
+int parameter = 11; // 这个参数不仅与Ti是否超过300相关，还与是否超时相关
 void solution()
 {
     for (int i = 1; i <= M; i++)
@@ -169,8 +170,8 @@ void solution()
                     double Fast_effiective = INT_MAX;
                     int best_size, pro_time;
 
-                    int process_start = timej + latency[j][id];  // 这里需要根据具体题目调整这个参数防止Ti过大
-                    for (int size = max(min(request_size[j], cnt) / 10, 1); size <= min(request_size[j], cnt); size++) // 确定size的大小, 这个循环完成决策
+                    int process_start = timej + latency[j][id];                                                        // 这里需要根据具体题目调整这个参数防止Ti过大
+                    for (int size = max(min(request_size[j], cnt) / parameter, 1); size <= min(request_size[j], cnt); size++) // 确定size的大小, 这个循环完成决策
                     {
                         bool flag = 0;
                         int time_process = request_time(size, j, i) - latency[j][id];
@@ -220,22 +221,33 @@ void solution()
                     // 于是timej就是这个请求正确发送的最早时间，并且再次初始化process_start
                     timej = receive_time - latency[j][id];
                     solu.push_back({timej, j, k, best_size, pro_time, id});
-                    timej = timej + latency[j][id] + 1;     // 准备下一次请求的发送时间，这里可以调参
+                    timej = timej + latency[j][id] + 1; // 准备下一次请求的发送时间，这里可以调参
                     cnt -= best_size;
                 }
-                // 更新ans[id]
-                if (solu.back().process_start + request_time(solu.back().Bj, j, i) - latency[j][id] <= Fast_Time)
-                {
-                    Fast_Time = solu.back().process_start + request_time(solu.back().Bj, j, i) - latency[j][id];
-                    Fast_Solu = solu;
-                }
                 // 还原
-
                 for (Plan &p : solu)
                 {
                     int time_process = request_time(p.Bj, j, i) - latency[j][id];
                     for (int q = 0; q <= time_process - 1; q++)
                         NPU_size[j][k][p.process_start + q] += p.Bj * a + b;
+                }
+
+                //cerr << "user: " << i << " Server: " << j << " NPU: " << k << "\n";
+                if(solu.size() <= 300)
+                {
+                    // 更新ans[id]
+                    if (solu.back().process_start + request_time(solu.back().Bj, j, i) - latency[j][id] <= Fast_Time)
+                    {
+                        Fast_Time = solu.back().process_start + request_time(solu.back().Bj, j, i) - latency[j][id];
+                        Fast_Solu = solu;
+                    }
+                    parameter = 11;
+                }
+                else
+                {
+                    // 重新再做一次
+                    parameter--;
+                    k--;
                 }
             }
         }
@@ -252,7 +264,7 @@ void solution()
             ans[id].push_back(request_id);
         }
 
-        // cout << "user : " << i << "finished\n";
+        cerr << "user : " << i << "finished\n";
     }
 
     for (int i = 1; i <= M; i++)

@@ -71,35 +71,41 @@ void data_loader_generator(bool New)
             request_size[i] = min((m[i] - b) / a, 1000); // 表示应该向第i个服务器的NPU放入多大的样本数量
         }
         in.close();
-        system(temp1.c_str());
-        system(temp2.c_str());
+        double time1 = clock();
 
+        system(temp1.c_str());
+        double time2 = clock();
+        cout << "Time Cost: " << (time2 - time1) / 1000 << "s\n"; // 该时间不包含编译时间
+
+        system(temp2.c_str());
+        double time3 = clock();
+        cout << "Time Cost: " << (time3 - time2) / 1000 << "s\n";
         return;
     }
 
     srand(time(0)); // 固定随机种子
 
     // 生成服务器种类 N ∈ [1, 10]
-    N = rand() % 2 + 2;
+    N = rand() % 2 + 5;
     for (int i = 1; i <= N; ++i)
     {
-        g[i] = rand() % 2 + 2;       // 1..10  这里要把数据强化一下注意
-        k[i] = rand() % 2 + 1;       // 1..5
-        m[i] = rand() % 1001 + 1000; // 1000..2000
+        g[i] = rand() % 2 + 5;       // 1..10  这里要把数据强化一下注意
+        k[i] = rand() % 1 + 1;       // 1..5
+        m[i] = rand() % 201 + 800; // 1000..2000
     }
 
     // 生成用户数量 M ∈ [1, 500]
-    M = rand() % 101 + 400;
+    M = 500;
 
     // 为每个用户生成 s, e, cnt
     for (int i = 1; i <= M; ++i)
     {
         user[i].id = i;
         // cnt ∈ [1, 6000]
-        user[i].cnt = rand() % 2000 + 4001;
+        user[i].cnt = rand() % 2001 + 4000;
         int maxS = 60000 - user[i].cnt * 10;
         user[i].s = rand() % (maxS + 1);
-        user[i].e = user[i].s + 5 * user[i].cnt + rand() % (60000 - user[i].s - 5 * user[i].cnt + 1) / 2;
+        user[i].e = user[i].s + 5 * user[i].cnt + rand() % (60000 - user[i].s - 5 * user[i].cnt + 1) / 100;
         user[i].end_time = 0;
     }
 
@@ -149,9 +155,16 @@ void data_loader_generator(bool New)
         request_size[i] = min((m[i] - b) / a, 1000); // 表示应该向第i个服务器的NPU放入多大的样本数量
     }
     ofs.close();
-    
+
+    double time1 = clock();
+
     system(temp1.c_str());
+    double time2 = clock();
+    cout << "Time Cost: " << (time2 - time1) / 1000 << "s\n\n";
+
     system(temp2.c_str());
+    double time3 = clock();
+    cout << "Time Cost: " << (time3 - time2) / 1000 << "s";
     // cout<<"data_end"<<endl;
 }
 
@@ -289,7 +302,7 @@ void NPU_request_process()
             {
                 cout<<"NPU_request_list["<<i<<"]["<<j<<"]:"<<NPU_request_list[i][j][t].user<<" "<<NPU_request_list[i][j][t].received_time<<" "<<NPU_request_list[i][j][t].B<<endl;
             }*/
-            for (int t = 0; t <= 200000; t++)
+            for (int t = 0; t <= 200000; t++)// 注意这里修改了!!!
             {
                 int temp_flag = 1;
                 while (temp_flag == 1)
@@ -350,15 +363,15 @@ double score_calculate()
         score_sum += h_x(temp_x) * p_x(user[i].move) * 10000.0;
         /*cout<<"score_temp:"<<fixed<<setprecision(6)<<h_x(temp_x) * p_x(user[i].move) * 10000.0<<endl;*/
     }
-    /*cout<<"user_count:"<<user_count<<endl;*/
+    //cout << "\nlatenum:" << user_count << endl;
     score_sum = h_x(user_count) * score_sum;
     return score_sum;
 }
 
 int main()
 {
-    program1 = "not_full_NPU";
-    program2 = "test";
+    program1 = "test";
+    program2 = "testpro";
     data_loader_generator(1);
     ifstream in(program2 + ".txt");
     for (int i = 1; i <= M; i++)
@@ -380,7 +393,6 @@ int main()
             last_server = plan.serverj;
             last_NPU = plan.NPUj;
         }
-        // cout<<"append_end"<<endl;
     }
     in.close();
     brief_check();
@@ -391,29 +403,30 @@ int main()
         cout << "The score you get of this sample is " << fixed << setprecision(0) << score << endl;
     }
 
-    // ofstream out("judge_monitor.txt");
-    // for (int i = 1; i <= N; i++)
-    // {
-    //     for (int j = 1; j <= g[i]; j++)
-    //     {
-    //         for (int k = 0; k <= 100000; k++)
-    //         {
-    //             out << NPU_size[i][j][k] << " ";
-    //         }
-    //         out << "\n";
-    //     }
-    // }
-    // out.close();
+    in.open(program2 + "_monitor.txt");
 
-    // string temp = "fc judge_monitor.txt " + program2 + "_monitor.txt";
-    // if (system(temp.c_str()))
+    int diff = 0, sum = 0;
+    for (int i = 1; i <= N; i++)
+    {
+        sum += g[i] * 60001;
+        for (int j = 1; j <= g[i]; j++)
+        {
+            for (int k = 0; k <= 60000; k++)
+            {
+                int temp;
+                in >> temp;
+                if (temp != NPU_size[i][j][k])
+                    diff++;
+            }
+        }
+    }
+
+    cout << "different rating:  " << fixed << setprecision(8) << 1.0 * 100 * diff / sum << "%";
+    // for(int i = 1; i <= M; i++)
     // {
-    //     cout << "\nmonitor is not the same\n";
+    //     out << i << " " << user[i].end_time - user[i].e << "\n";
     // }
-    // else
-    // {
-    //     cout << "\nmonitor is same\n";
-    // }
+    in.close();
 
     return 0;
 }

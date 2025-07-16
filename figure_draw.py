@@ -61,6 +61,6 @@ def plot_npu_scatter(g_list, monitor_data):
 
 
 if __name__ == '__main__':
-    cfg = read_config(Path("sample/data.in"))
-    mon = read_monitor(Path("monitor.txt"))
+    cfg = read_config(Path("sample/extra_data.in"))
+    mon = read_monitor(Path("test_monitor.txt"))
     plot_npu_scatter(cfg, mon)

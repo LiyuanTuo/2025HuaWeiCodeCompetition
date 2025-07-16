@@ -4,14 +4,14 @@ using namespace std;
 // 单个npu能处理的样本的大小范围是[40, 190]
 // 单个npu完成上述大小范围的样本所需时间的范围是[2, 14]
 // 传输时间范围是[10, 20]
-int N, g[11], k[11], m[11], M, latency[11][501], a, b, server_index[501][11], request_size[11], request_id;
+int N, g[11], k[11], m[11], M, latency[11][501], a, b, request_size[11], request_id;
 short NPU_size[11][11][200001];              // 有极端数据，13.5万是安全的
 vector<int> receive_process[11][11][200001]; // 内存储请求的id
 
 struct Plan
 {
     int timej, serverj, NPUj, Bj, process_start, sender;
-} plan[80000];        // 至多80000个请求
+} plan[150001];        // 至多80000个请求
 vector<int> ans[501]; // 这个ans的下标是用户的真实id, 存储请求的id
 
 struct User
@@ -20,25 +20,10 @@ struct User
     User() : id(0), s(0), e(0), cnt(0) {}
     bool operator<(const User &other)
     { // 查完成度之后发现在这个样例下完成度是差不多的
-        // return cnt + 0.08 * s < other.cnt + 0.08 * other.s;
-
-        // if (cnt * double(Request_Time(server_index[id][1], id)) / request_size[server_index[id][1]] != other.cnt * double(Request_Time(server_index[other.id][1], other.id)) / request_size[server_index[other.id][1]])
-        //     return cnt * double(Request_Time(server_index[id][1], id)) / request_size[server_index[id][1]] < other.cnt * double(Request_Time(server_index[other.id][1], other.id)) / request_size[server_index[other.id][1]];
-        // else
-        //     return s < other.s;
         if (cnt != other.cnt)       // 查完成度，必须查！查完之后发现在这个样例下完成度是差不多的
             return cnt < other.cnt; // 一个-0.991136 一个-0.991093，优化后的完成度甚至还要差一些
         else
             return s < other.s;
-        // if(server_timecost[id][1] != server_timecost[other.id][1])
-        //     return server_timecost[id][1] < server_timecost[other.id][1];
-        // else
-        //     return s < other.s;
-        //    return 1.0 * cnt / (1.0 * e - 1.0 * s) < 1.0 * other.cnt / (1.0 * other.e - 1.0 * other.s);
-        // if (s != other.s)
-        //     return s < other.s;
-        // else
-        //     return cnt < other.cnt;
     }
 } user[501];
 
@@ -81,76 +66,10 @@ int request_time(int size, int server, int user)
 
 void sort_server()
 {
-
-    for (int i = 1; i <= M; i++) // 而这个i则是用户的唯一 id
-    {
-        for (int j = 1; j <= N; j++)
-        {
-            server_index[i][j] = j; // 存的是服务器的下标,也即是哪一个服务器
-        }
-    }
-    // cout << endl << "test" << endl;
-    for (int i = 1; i <= M; i++)
-    {
-        sort(server_index[i] + 1, server_index[i] + N + 1, [i](int server_index1, int server_index2)
-             { return double(request_time(request_size[server_index1], server_index1, i)) / request_size[server_index1] <
-                      double(request_time(request_size[server_index2], server_index2, i)) / request_size[server_index2]; }); // 按照每个对象块的平均处理时间排序
-        // cout << "user_" << i << ":";
-        // for (int j = 1; j <= N; j++)
-        // {
-        //     cout << server_index[i][j] << " ";
-        // }
-        // cout << endl;
-    }
-
-    // for (int i = 1; i <= M; i++)
-    // {
-    //     for (int j = 1; j <= N; j++)
-    //     {
-    //         int process_time = (int)ceil(sqrt(request_size[j]) / k[j]);
-    //         int Ti = (int)ceil(1.0 * user[i].cnt / request_size[j]);
-    //         if (process_time <= latency[j][i] + 1)
-    //         {
-    //             server_timecost[i][j] = Ti * (latency[j][i] + 1) - 1 +
-    //                                     (int)ceil(sqrt(user[i].cnt - (Ti - 1) * request_size[j]) / k[j]);
-    //         }
-    //         else
-    //         {
-    //             server_timecost[i][j] = latency[j][i] + (Ti - 1) * (int)ceil(sqrt(request_size[j]) / k[j]) +
-    //                                     (int)ceil(sqrt(user[i].cnt - (Ti - 1) * request_size[j]) / k[j]);
-    //         }
-    //     }
-    // }
-    // cout << "Test\n";
-    // for (int i = 1; i <= M; i++)
-    // {
-    //     cout << "user_" << i << ":";
-    //     for (int j = 1; j <= N; j++)
-    //     {
-    //         cout << server_timecost[i][j] << " ";
-    //     }
-    //     cout << endl;
-    //     sort(server_timecost[i] + 1, server_timecost[i] + N + 1);
-    //     cout << "      :";
-    //     for (int j = 1; j <= N; j++)
-    //     {
-    //         cout << server_timecost[i][j] << " ";
-    //     }
-    //     cout << endl;
-    // }
-
     sort(user + 1, user + 1 + M);
-
-    // for(int i = 1; i <= M; i++)
-    // {
-    //     cout << "user " << user[i].id << ":  ";
-    //     cout << user[i].cnt << "\n";
-    // }
-    // cout << endl;
-    return;
 }
 
-int parameter = 11; // 这个参数不仅与Ti是否超过300相关，还与是否超时相关
+int parameter = 13; // 这个参数不仅与Ti是否超过300相关，还与是否超时相关
 void solution()
 {
     for (int i = 1; i <= M; i++)
@@ -162,8 +81,8 @@ void solution()
         {
             for (int k = 1; k <= g[j]; k++)
             {
-                vector<Plan> solu;     // 存储的是请求的id
-                int cnt = user[i].cnt; // 确实需要副本
+                vector<Plan> solu; // 存储的是请求的id
+                int cnt = user[i].cnt;
                 int timej = user[i].s;
                 while (cnt)
                 {
@@ -241,7 +160,7 @@ void solution()
                         Fast_Time = solu.back().process_start + request_time(solu.back().Bj, j, i) - latency[j][id];
                         Fast_Solu = solu;
                     }
-                    parameter = 11;
+                    parameter = 13;
                 }
                 else
                 {
@@ -264,7 +183,7 @@ void solution()
             ans[id].push_back(request_id);
         }
 
-        cerr << "user : " << i << "finished\n";
+        // cerr << "user : " << i << " " << request_id << "\n";
     }
 
     for (int i = 1; i <= M; i++)
@@ -310,7 +229,7 @@ void monitor_NPU_size()
     // cerr << "sumsize: " << sumsize << "  truesumsize: " << truesumsize << "\n";
     if (sumsize == truesumsize)
     {
-        cerr << "Right\n";
+        // cerr << "Right\n";
     }
     else
     {
@@ -322,14 +241,21 @@ void monitor_NPU_size()
     {
         for (int j = 1; j <= g[i]; j++)
         {
-            for (int k = 0; k <= 100000; k++)
+            for (int k = 0; k <= 60000; k++)
             {
                 out << NPU_size[i][j][k] << " ";
             }
             out << "\n";
         }
     }
-    out.close();
+
+    // // for (int i = 1; i <= M; i++)
+    // // {
+    // //     Plan &solu = plan[ans[i].back()];
+    // //     int endid = solu.process_start + request_time(solu.Bj, solu.serverj, i) - latency[solu.serverj][i] - user[i].e;
+    // //     out << i << " " << endid << "\n";
+    // // }
+    // out.close();
 
     // 这段代码检查任务完成情况
     int latenum = 0;
@@ -339,7 +265,7 @@ void monitor_NPU_size()
         if (solu.process_start + request_time(solu.Bj, solu.serverj, i) - latency[solu.serverj][i] > user[i].e)
             latenum++;
     }
-    cerr << "\n"
+    cerr
          << "latenum: " << latenum << "\n";
 
     double Score = 0.0, Highest_Score = 0.0; // pow(2, -1.0 * latenum / 100.0);
@@ -360,7 +286,6 @@ void monitor_NPU_size()
 //-0.992853
 int main()
 {
-    srand(6);
     get_argument_initial();
     sort_server();
     solution();
@@ -368,4 +293,4 @@ int main()
     monitor_NPU_size();
     return 0;
 }
-// g++ test.cpp -std=c++11 -o test; get-Content .\sample\data.in | test.exe > test.txt
+// g++ test.cpp -std=c++11 -o test; get-Content .\sample\extra_data.in | test.exe > test.txt

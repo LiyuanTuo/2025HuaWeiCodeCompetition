@@ -11,7 +11,7 @@ vector<int> receive_process[11][11][200001]; // 内存储请求的id
 struct Plan
 {
     int timej, serverj, NPUj, Bj, process_start, sender;
-} plan[80000];        // 至多80000个请求
+} plan[150001];        // 至多80000个请求
 vector<int> ans[501]; // 这个ans的下标是用户的真实id, 存储请求的id
 
 struct User
@@ -248,7 +248,7 @@ void monitor_NPU_size()
     // cerr << "sumsize: " << sumsize << "  truesumsize: " << truesumsize << "\n";
     if (sumsize == truesumsize)
     {
-        cerr << "Right\n";
+        // cerr << "Right\n";
     }
     else
     {

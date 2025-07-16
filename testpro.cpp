@@ -69,19 +69,31 @@ void sort_server()
     sort(user + 1, user + 1 + M);
 }
 
-bool check(int mid, int j, int k, int process_start, int time_process)
+bool check(int mid, int j, int k, int& process_start, int time_process)
 {
     for (int p = 0; p < time_process; p++)
         if (NPU_size[j][k][process_start + p] < mid * a + b)
         {
+            process_start = process_start + p + 1;
             return 0;
-            // process_start = process_start + p + 1;
-            // break;
         }
 
     return 1;
 }
 
+bool Check(int mid, int j, int k, int process_start, int time_process)
+{
+    for (int p = 0; p < time_process; p++)
+        if (NPU_size[j][k][process_start + p] < mid * a + b)
+        {
+            return 0;
+        }
+
+    return 1;
+}
+
+
+int parameter = 13; // 这个参数不仅与Ti是否超过300相关，还与是否超时相关
 void solution()
 {
     for (int i = 1; i <= M; i++)
@@ -95,66 +107,86 @@ void solution()
             {
                 vector<Plan> solu; // 存储的是请求的id
                 int cnt = user[i].cnt;
-                int timej = user[i].s, process_start = timej + latency[j][id];
+                int timej = user[i].s;
                 while (cnt)
                 {
-                    int r = min(request_size[j], cnt), l = max(r / 8, 1); // 确定size的大小
-                    int time_process = request_time(l, j, i) - latency[j][id];
+                    double Fast_effiective = INT_MAX;
+                    int best_size, pro_time;
 
-                    bool flag = 1;
-                    for (int p = 0; p < time_process; p++)
-                        if (NPU_size[j][k][process_start + p] < l * a + b)
-                        {
-                            flag = 0;
-                            process_start = process_start + p + 1;
-                            break;
-                        }
-
-                    if (flag)
+                    int process_start = timej + latency[j][id];                                                        // 这里需要根据具体题目调整这个参数防止Ti过大
+                    for (int size = max(min(request_size[j], cnt) / parameter, 1); size <= min(request_size[j], cnt); size++) // 确定size的大小, 这个循环完成决策
                     {
-                        while (l < r)
+                        // bool flag = 0;
+                        int time_process = request_time(size, j, i) - latency[j][id];
+                        // while (flag == 0)
+                        // {
+                        //     flag = 1;
+                        //     for (int p = 0; p < time_process; p++)
+                        //         if (NPU_size[j][k][process_start + p] < size * a + b)
+                        //         {
+                        //             flag = 0;
+                        //             process_start = process_start + p + 1;
+                        //             break;
+                        //         }
+                        // } // 这个循环只是为了找到那个位置而已
+                        
+                        while (check(size, j, k, process_start, time_process) == 0);
+                        // 这个循环只是为了找到那个位置而已
+
+                        int r = min(request_size[j], cnt);
+                        while (size < r)
                         {
-                            int mid = l + r + 1 >> 1;
+                            int mid = size + r + 1 >> 1;
                             time_process = request_time(mid, j, i) - latency[j][id];
-                            if (check(mid, j, k, process_start, time_process))
-                                l = mid;
+                            if (Check(mid, j, k, process_start, time_process))
+                                size = mid;
                             else
                                 r = mid - 1;
                         }
+                        time_process = request_time(size, j, i) - latency[j][id];
 
-                        time_process = request_time(l, j, i) - latency[j][id];
-                        // process_start存储的是该NPU开始处理当前这个请求的时间
-                        // 也即是服务器接收到这个请求时间的上界 timej + latency[j][id] 是接收到这个请求时间的下界
-                        for (int q = 0; q <= time_process - 1; q++)
+                        if (1.0 * (process_start + time_process - timej) / pow(1.0 * size, 1.0) < Fast_effiective)
                         {
-                            NPU_size[j][k][process_start + q] -= l * a + b; // 更新这个NPU_size
+                            Fast_effiective = 1.0 * (process_start + time_process - timej) / pow(1.0 * size, 1.0);
+                            best_size = size, pro_time = process_start;
+                        }
+                        else if (1.0 * (process_start + time_process - timej) / pow(1.0 * size, 1.0) == Fast_effiective && size > best_size)
+                        {
+                            best_size = size, pro_time = process_start; // 然后这里没有修改什么全局信息;
+                        }
+                    } // 采用决策
+
+                    int time_process = request_time(best_size, j, i) - latency[j][id];
+                    // process_start存储的是该NPU开始处理当前这个请求的时间
+                    // 也即是服务器接收到这个请求时间的上界 timej + latency[j][id] 是接收到这个请求时间的下界
+                    for (int q = 0; q <= time_process - 1; q++)
+                    {
+                        NPU_size[j][k][pro_time + q] -= best_size * a + b; // 更新这个NPU_size, 注意protime才是这次发送的请求的决策后的时间
+                    }
+
+                    int receive_time = timej + latency[j][id];
+                    for (int q = timej + latency[j][id]; q <= pro_time - 1; q++)
+                        for (int &r : receive_process[j][k][q])
+                        {
+                            // if (plan[r].sender > id)
+                            //     receive_time = q + 1; // 确定receive_time
+                            // else
+                            //     receive_time = q;    //目前来看，这部分影响较小
+                            receive_time = q + 1;
                         }
 
-                        int receive_time = timej + latency[j][id];
-                        for (int q = timej + latency[j][id]; q <= process_start - 1; q++)
-                            for (int &r : receive_process[j][k][q])
-                            {
-                                // if (plan[r].sender > id)
-                                //     receive_time = q + 1; // 确定receive_time
-                                // else
-                                //     receive_time = q;    //目前来看，这部分影响较小
-                                receive_time = q + 1;
-                            }
+                    // receive_time 存储的就是这个NPU收到这个请求的时间
+                    // 于是timej就是这个请求正确发送的最早时间，并且再次初始化process_start
+                    timej = receive_time - latency[j][id];
+                    solu.push_back({timej, j, k, best_size, pro_time, id});
+                    timej = timej + latency[j][id] + 1; // 准备下一次请求的发送时间，这里可以调参
+                    cnt -= best_size;
 
-                        // receive_time 存储的就是这个NPU收到这个请求的时间
-                        // 于是timej就是这个请求正确发送的最早时间，并且再次初始化process_start
-                        timej = receive_time - latency[j][id];
-                        solu.push_back({timej, j, k, l, process_start, id});
-                        timej = timej + latency[j][id] + 1;     // 准备下一次请求的发送时间，这里可以调参
-                        process_start = timej + latency[j][id];
-                        cnt -= l;
+                    // 剪一下支
+                    if(solu.back().process_start + request_time(solu.back().Bj, j, i) - latency[j][id] > Fast_Time)
+                    {
+                        break;
                     }
-                }
-                // 更新ans[id]
-                if (solu.back().process_start + request_time(solu.back().Bj, j, i) - latency[j][id] <= Fast_Time)
-                {
-                    Fast_Time = solu.back().process_start + request_time(solu.back().Bj, j, i) - latency[j][id];
-                    Fast_Solu = solu;
                 }
                 // 还原
                 for (Plan &p : solu)
@@ -162,6 +194,24 @@ void solution()
                     int time_process = request_time(p.Bj, j, i) - latency[j][id];
                     for (int q = 0; q <= time_process - 1; q++)
                         NPU_size[j][k][p.process_start + q] += p.Bj * a + b;
+                }
+
+                //cerr << "user: " << i << " Server: " << j << " NPU: " << k << "\n";
+                if(solu.size() <= 300)
+                {
+                    // 更新ans[id]
+                    if (solu.back().process_start + request_time(solu.back().Bj, j, i) - latency[j][id] <= Fast_Time)
+                    {
+                        Fast_Time = solu.back().process_start + request_time(solu.back().Bj, j, i) - latency[j][id];
+                        Fast_Solu = solu;
+                    }
+                    parameter = 13;
+                }
+                else
+                {
+                    // 重新再做一次
+                    parameter -= 3;
+                    k--;
                 }
             }
         }
@@ -178,7 +228,7 @@ void solution()
             ans[id].push_back(request_id);
         }
 
-        // cerr << "user : " << i << "finished\n";
+        // cerr << "user : " << i << " " << request_id << "\n";
     }
 
     for (int i = 1; i <= M; i++)
@@ -193,7 +243,7 @@ void solution()
 
 void monitor_NPU_size()
 {
-    cerr << "not_full_NPU:\n\n";
+    cerr << "testpro:\n\n";
     long long sumsize = 0;
     for (int i = 1; i <= N; i++)
     {
@@ -231,19 +281,19 @@ void monitor_NPU_size()
         cerr << "WRONG\n";
     }
 
-    // ofstream out("not_full_NPU_monitor.txt");
-    // for (int i = 1; i <= N; i++)
-    // {
-    //     for (int j = 1; j <= g[i]; j++)
-    //     {
-    //         for (int k = 0; k <= 100000; k++)
-    //         {
-    //             out << NPU_size[i][j][k] << " ";
-    //         }
-    //         out << "\n";
-    //     }
-    // }
-    
+    ofstream out("testpro_monitor.txt");
+    for (int i = 1; i <= N; i++)
+    {
+        for (int j = 1; j <= g[i]; j++)
+        {
+            for (int k = 0; k <= 60000; k++)
+            {
+                out << NPU_size[i][j][k] << " ";
+            }
+            out << "\n";
+        }
+    }
+
     // // for (int i = 1; i <= M; i++)
     // // {
     // //     Plan &solu = plan[ans[i].back()];
@@ -281,7 +331,6 @@ void monitor_NPU_size()
 //-0.992853
 int main()
 {
-    srand(6);
     get_argument_initial();
     sort_server();
     solution();
@@ -289,4 +338,4 @@ int main()
     monitor_NPU_size();
     return 0;
 }
-// g++ not_full_NPU.cpp -std=c++11 -o not_full_NPU; get-Content .\sample\extra_data.in | not_full_NPU.exe > not_full_NPU.txt
+// g++ test.cpp -std=c++11 -o test; get-Content .\sample\extra_data.in | test.exe > test.txt

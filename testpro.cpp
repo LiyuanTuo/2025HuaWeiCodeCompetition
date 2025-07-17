@@ -7,6 +7,8 @@ using namespace std;
 int N, g[11], k[11], m[11], M, latency[11][501], a, b, request_size[11], request_id;
 short NPU_size[11][11][200001];              // 有极端数据，13.5万是安全的
 vector<int> receive_process[11][11][200001]; // 内存储请求的id
+pair<int, int> server_timecost[501][11];
+int which_gpu[11]; // which_gpu[i]用于表示第i个服务器应该让哪一个gpu处理传送至服务器i的请求
 
 struct Plan
 {
@@ -56,6 +58,8 @@ void get_argument_initial()
     {
         request_size[i] = min((m[i] - b) / a, 1000); // 表示应该向第i个服务器的NPU放入多大的样本数量
     }
+    for (int i = 1; i <= N; i++)
+        which_gpu[i] = 1; // initial which_gpu
 }
 
 int request_time(int size, int server, int user)
@@ -66,10 +70,52 @@ int request_time(int size, int server, int user)
 
 void sort_server()
 {
+    for (int i = 1; i <= M; i++)
+    {
+        for (int j = 1; j <= N; j++)
+        {
+            server_timecost[i][j].second = j; // 这里的i是真实id;
+        }
+    }
+    for (int i = 1; i <= M; i++)
+    {
+        for (int j = 1; j <= N; j++)
+        {
+            int process_time = (int)ceil(sqrt(request_size[j]) / k[j]);
+            int Ti = (int)ceil(1.0 * user[i].cnt / request_size[j]);
+            if (process_time <= latency[j][i] + 1)
+            {
+                server_timecost[i][j].first = Ti * (latency[j][i] + 1) - 1 +
+                                              (int)ceil(sqrt(user[i].cnt - (Ti - 1) * request_size[j]) / k[j]);
+            }
+            else
+            {
+                server_timecost[i][j].first = latency[j][i] + (Ti - 1) * (int)ceil(sqrt(request_size[j]) / k[j]) +
+                                              (int)ceil(sqrt(user[i].cnt - (Ti - 1) * request_size[j]) / k[j]);
+            }
+        }
+    }
+    // cout << "Test\n";
+    for (int i = 1; i <= M; i++)
+    {
+        // cout << "user_" << i << ":";
+        // for (int j = 1; j <= N; j++)
+        // {
+        //     cout << server_timecost[i][j].first << " " << server_timecost[i][j].second << " ";
+        // }
+        // cout << endl;
+        sort(server_timecost[i] + 1, server_timecost[i] + N + 1);
+        // cout << "      :";
+        // for (int j = 1; j <= N; j++)
+        // {
+        //     cout << server_timecost[i][j].first << " " << server_timecost[i][j].second << " ";
+        // }
+        // cout << endl;
+    }
     sort(user + 1, user + 1 + M);
 }
 
-bool check(int mid, int j, int k, int& process_start, int time_process)
+bool check(int mid, int j, int k, int &process_start, int time_process)
 {
     for (int p = 0; p < time_process; p++)
         if (NPU_size[j][k][process_start + p] < mid * a + b)
@@ -101,49 +147,68 @@ void solution()
         int id = user[i].id, Fast_Time = 0x3f3f3f3f;
         vector<Plan> Fast_Solu;
 
-        for (int j = 1; j <= N; j++)
+        for (int t = 1; t <= N; t++)
         {
-            for (int k = 1; k <= g[j]; k++)
+            int j = server_timecost[id][t].second;
+            int k = which_gpu[j]; // 临时变量
+            for (int _ = 1; _ <= g[j]; _++)
             {
                 vector<Plan> solu; // 存储的是请求的id
                 int cnt = user[i].cnt;
                 int timej = user[i].s;
                 while (cnt)
                 {
+                    int process_time = (int)ceil(sqrt(request_size[j]) / ::k[j]), future_cost = 0;
+                    int Ti = (int)ceil(1.0 * cnt / request_size[j]);
+                    if (process_time <= latency[j][id] + 1)
+                    {
+                        future_cost = Ti * (latency[j][id] + 1) - 1 +
+                                      (int)ceil(sqrt(cnt - (Ti - 1) * request_size[j]) / ::k[j]);
+                    }
+                    else
+                    {
+                        future_cost = latency[j][id] + (Ti - 1) * (int)ceil(sqrt(request_size[j]) / ::k[j]) +
+                                      (int)ceil(sqrt(cnt - (Ti - 1) * request_size[j]) / ::k[j]);
+                    }
+                    if (timej + future_cost >= Fast_Time)
+                    {
+                        break; // IDA* 优化
+                    }
+
                     double Fast_effiective = INT_MAX;
                     int best_size, pro_time;
 
                     int process_start = timej + latency[j][id];                                                        // 这里需要根据具体题目调整这个参数防止Ti过大
                     for (int size = max(min(request_size[j], cnt) / parameter, 1); size <= min(request_size[j], cnt); size++) // 确定size的大小, 这个循环完成决策
                     {
-                        // bool flag = 0;
+                        bool flag = 0;
                         int time_process = request_time(size, j, i) - latency[j][id];
-                        // while (flag == 0)
-                        // {
-                        //     flag = 1;
-                        //     for (int p = 0; p < time_process; p++)
-                        //         if (NPU_size[j][k][process_start + p] < size * a + b)
-                        //         {
-                        //             flag = 0;
-                        //             process_start = process_start + p + 1;
-                        //             break;
-                        //         }
-                        // } // 这个循环只是为了找到那个位置而已
-                        
-                        while (check(size, j, k, process_start, time_process) == 0);
-                        // 这个循环只是为了找到那个位置而已
-
-                        int r = min(request_size[j], cnt);
-                        while (size < r)
+                        while (flag == 0)
                         {
-                            int mid = size + r + 1 >> 1;
-                            time_process = request_time(mid, j, i) - latency[j][id];
-                            if (Check(mid, j, k, process_start, time_process))
-                                size = mid;
-                            else
-                                r = mid - 1;
-                        }
-                        time_process = request_time(size, j, i) - latency[j][id];
+                            flag = 1;
+                            for (int p = 0; p < time_process; p++)
+                                if (NPU_size[j][k][process_start + p] < size * a + b)
+                                {
+                                    flag = 0;
+                                    process_start = process_start + p + 1;
+                                    break;
+                                }
+                        } // 这个循环只是为了找到那个位置而已
+
+                        // while (check(size, j, k, process_start, time_process) == 0)
+                        ;
+                        // 这个循环只是为了找到那个位置而已
+                        // int r = min(request_size[j], cnt);
+                        // while (size < r)
+                        // {
+                        //     int mid = size + r + 1 >> 1;
+                        //     time_process = request_time(mid, j, i) - latency[j][id];
+                        //     if (Check(mid, j, k, process_start, time_process))
+                        //         size = mid;
+                        //     else
+                        //         r = mid - 1;
+                        // }
+                        // time_process = request_time(size, j, i) - latency[j][id];
 
                         if (1.0 * (process_start + time_process - timej) / pow(1.0 * size, 1.0) < Fast_effiective)
                         {
@@ -181,12 +246,6 @@ void solution()
                     solu.push_back({timej, j, k, best_size, pro_time, id});
                     timej = timej + latency[j][id] + 1; // 准备下一次请求的发送时间，这里可以调参
                     cnt -= best_size;
-
-                    // 剪一下支
-                    if(solu.back().process_start + request_time(solu.back().Bj, j, i) - latency[j][id] > Fast_Time)
-                    {
-                        break;
-                    }
                 }
                 // 还原
                 for (Plan &p : solu)
@@ -196,22 +255,27 @@ void solution()
                         NPU_size[j][k][p.process_start + q] += p.Bj * a + b;
                 }
 
-                //cerr << "user: " << i << " Server: " << j << " NPU: " << k << "\n";
-                if(solu.size() <= 300)
+                // cerr << "user: " << i << " Server: " << j << " NPU: " << k << "\n";
+                if (solu.size() <= 300)
                 {
                     // 更新ans[id]
-                    if (solu.back().process_start + request_time(solu.back().Bj, j, i) - latency[j][id] <= Fast_Time)
+                    int sumBj = 0;
+                    for(auto p : solu)
+                        sumBj += p.Bj;
+
+                    if (sumBj == user[i].cnt && solu.back().process_start + request_time(solu.back().Bj, j, i) - latency[j][id] < Fast_Time)
                     {
                         Fast_Time = solu.back().process_start + request_time(solu.back().Bj, j, i) - latency[j][id];
                         Fast_Solu = solu;
                     }
                     parameter = 13;
+                    k = k % g[j] + 1;
                 }
                 else
                 {
-                    // 重新再做一次
+                    // 重新再做一次, k不变
                     parameter -= 3;
-                    k--;
+                    _--;
                 }
             }
         }
@@ -227,7 +291,8 @@ void solution()
             receive_process[j.serverj][j.NPUj][j.timej + latency[j.serverj][id]].push_back(request_id);
             ans[id].push_back(request_id);
         }
-
+        int serv = Fast_Solu[0].serverj;
+        which_gpu[serv] = which_gpu[serv] % g[serv] + 1;
         // cerr << "user : " << i << " " << request_id << "\n";
     }
 
@@ -311,7 +376,7 @@ void monitor_NPU_size()
             latenum++;
     }
     cerr
-         << "latenum: " << latenum << "\n";
+        << "latenum: " << latenum << "\n";
 
     double Score = 0.0, Highest_Score = 0.0; // pow(2, -1.0 * latenum / 100.0);
     // double average = 0;
@@ -338,4 +403,4 @@ int main()
     monitor_NPU_size();
     return 0;
 }
-// g++ test.cpp -std=c++11 -o test; get-Content .\sample\extra_data.in | test.exe > test.txt
+// g++ testpro.cpp -std=c++11 -o testpro; get-Content .\sample\extra_data.in | testpro.exe > testpro.txt

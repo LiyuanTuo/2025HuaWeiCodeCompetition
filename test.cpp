@@ -236,25 +236,18 @@ void monitor_NPU_size()
         cerr << "WRONG\n";
     }
 
-    ofstream out("test_monitor.txt");
-    for (int i = 1; i <= N; i++)
-    {
-        for (int j = 1; j <= g[i]; j++)
-        {
-            for (int k = 0; k <= 60000; k++)
-            {
-                out << NPU_size[i][j][k] << " ";
-            }
-            out << "\n";
-        }
-    }
-
-    // // for (int i = 1; i <= M; i++)
-    // // {
-    // //     Plan &solu = plan[ans[i].back()];
-    // //     int endid = solu.process_start + request_time(solu.Bj, solu.serverj, i) - latency[solu.serverj][i] - user[i].e;
-    // //     out << i << " " << endid << "\n";
-    // // }
+    // ofstream out("test_monitor.txt");
+    // for (int i = 1; i <= N; i++)
+    // {
+    //     for (int j = 1; j <= g[i]; j++)
+    //     {
+    //         for (int k = 0; k <= 60000; k++)
+    //         {
+    //             out << NPU_size[i][j][k] << " ";
+    //         }
+    //         out << "\n";
+    //     }
+    // }
     // out.close();
 
     // 这段代码检查任务完成情况

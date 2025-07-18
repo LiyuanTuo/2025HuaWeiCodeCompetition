@@ -89,7 +89,7 @@ void data_loader_generator(bool New)
     N = rand() % 2 + 2;
     for (int i = 1; i <= N; ++i)
     {
-        g[i] = rand() % 2 + 3;       // 1..10  这里要把数据强化一下注意
+        g[i] = rand() % 2 + 2;       // 1..10  这里要把数据强化一下注意
         k[i] = rand() % 2 + 1;       // 1..5
         m[i] = rand() % 601 + 800; // 1000..2000
     }
@@ -102,10 +102,10 @@ void data_loader_generator(bool New)
     {
         user[i].id = i;
         // cnt ∈ [1, 6000]
-        user[i].cnt = rand() % 1001 + 5000;
+        user[i].cnt = rand() % 4001 + 2000;
         int maxS = 60000 - user[i].cnt * 10;
         user[i].s = rand() % (maxS + 1);
-        user[i].e = user[i].s + 5 * user[i].cnt + rand() % (60000 - user[i].s - 5 * user[i].cnt + 1) / 100;
+        user[i].e = user[i].s + 5 * user[i].cnt + rand() % (60000 - user[i].s - 5 * user[i].cnt + 1) / 50;
         user[i].end_time = 0;
     }
 
@@ -370,9 +370,9 @@ double score_calculate()
 
 int main()
 {
-    program1 = "test";
-    program2 = "testpro";
-    data_loader_generator(0);
+    program1 = "not_full_NPU";
+    program2 = "not_full_NPUpro";
+    data_loader_generator(1);
     ifstream in(program2 + ".txt");
     for (int i = 1; i <= M; i++)
     {

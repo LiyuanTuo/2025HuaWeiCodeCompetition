@@ -346,18 +346,18 @@ void monitor_NPU_size()
         cerr << "WRONG\n";
     }
 
-    ofstream out("testpro_monitor.txt");
-    for (int i = 1; i <= N; i++)
-    {
-        for (int j = 1; j <= g[i]; j++)
-        {
-            for (int k = 0; k <= 60000; k++)
-            {
-                out << NPU_size[i][j][k] << " ";
-            }
-            out << "\n";
-        }
-    }
+    // ofstream out("testpro_monitor.txt");
+    // for (int i = 1; i <= N; i++)
+    // {
+    //     for (int j = 1; j <= g[i]; j++)
+    //     {
+    //         for (int k = 0; k <= 60000; k++)
+    //         {
+    //             out << NPU_size[i][j][k] << " ";
+    //         }
+    //         out << "\n";
+    //     }
+    // }
 
     // // for (int i = 1; i <= M; i++)
     // // {

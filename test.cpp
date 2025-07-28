@@ -4,9 +4,9 @@ using namespace std;
 // 单个npu能处理的样本的大小范围是[40, 190]
 // 单个npu完成上述大小范围的样本所需时间的范围是[2, 14]
 // 传输时间范围是[10, 20]
-int N, g[11], k[11], m[11], M, latency[11][501], a, b, request_size[11], request_id;
+int N, g[11], k[11], m[11], M, latency[11][501], request_size[501][11], request_id;
 short NPU_size[11][11][200001];              // 有极端数据，13.5万是安全的
-vector<int> receive_process[11][11][200001]; // 内存储请求的id
+bool receive_process[11][11][200001]; // 内存储请求的id
 
 struct Plan
 {
@@ -16,12 +16,12 @@ vector<int> ans[501]; // 这个ans的下标是用户的真实id, 存储请求的
 
 struct User
 {
-    int id, s, e, cnt;
+    int id, s, e, cnt, a, b;
     User() : id(0), s(0), e(0), cnt(0) {}
     bool operator<(const User &other)
-    { // 查完成度之后发现在这个样例下完成度是差不多的
-        if (cnt != other.cnt)       // 查完成度，必须查！查完之后发现在这个样例下完成度是差不多的
-            return cnt < other.cnt; // 一个-0.991136 一个-0.991093，优化后的完成度甚至还要差一些
+    {
+        if (cnt * a + b != other.cnt * other.a + other.b)       // 查完成度，必须查！查完之后发现在这个样例下完成度是差不多的
+            return cnt * a + b < other.cnt * other.a + other.b; // 一个-0.991136 一个-0.991093，优化后的完成度甚至还要差一些
         else
             return s < other.s;
     }
@@ -45,16 +45,22 @@ void get_argument_initial()
             cin >> latency[i][j];
         }
     }
-    cin >> a >> b;
+    for (int i = 1; i <= M; i++)
+    {
+        cin >> user[i].a >> user[i].b;
+    }
 
     for (int i = 1; i <= N; i++)
         for (int j = 1; j <= g[i]; j++) // 初始化
             for (int k = 0; k <= 200000; k++)
                 NPU_size[i][j][k] = m[i]; // 确实应该向下取整，
 
-    for (int i = 1; i <= N; i++)
+    for(int i = 1; i <= M; i++)
     {
-        request_size[i] = min((m[i] - b) / a, 1000); // 表示应该向第i个服务器的NPU放入多大的样本数量
+        for (int j = 1; j <= N; j++)
+        {
+            request_size[i][j] = min((m[j] - user[i].b) / user[i].a, 1000); // 表示应该向第i个服务器的NPU放入多大的样本数量
+        }
     }
 }
 
@@ -69,7 +75,7 @@ void sort_server()
     sort(user + 1, user + 1 + M);
 }
 
-int parameter = 13; // 这个参数不仅与Ti是否超过300相关，还与是否超时相关
+int parameter = 11; // 这个参数不仅与Ti是否超过300相关，还与是否超时相关
 void solution()
 {
     for (int i = 1; i <= M; i++)
@@ -90,7 +96,7 @@ void solution()
                     int best_size, pro_time;
 
                     int process_start = timej + latency[j][id];                                                        // 这里需要根据具体题目调整这个参数防止Ti过大
-                    for (int size = max(min(request_size[j], cnt) / parameter, 1); size <= min(request_size[j], cnt); size++) // 确定size的大小, 这个循环完成决策
+                    for (int size = max(min(request_size[id][j], cnt) / parameter, 1); size <= min(request_size[id][j], cnt); size++) // 确定size的大小, 这个循环完成决策
                     {
                         bool flag = 0;
                         int time_process = request_time(size, j, i) - latency[j][id];
@@ -98,7 +104,7 @@ void solution()
                         {
                             flag = 1;
                             for (int p = 0; p < time_process; p++)
-                                if (NPU_size[j][k][process_start + p] < size * a + b)
+                                if (NPU_size[j][k][process_start + p] < size * user[i].a + user[i].b)
                                 {
                                     flag = 0;
                                     process_start = process_start + p + 1;
@@ -122,12 +128,12 @@ void solution()
                     // 也即是服务器接收到这个请求时间的上界 timej + latency[j][id] 是接收到这个请求时间的下界
                     for (int q = 0; q <= time_process - 1; q++)
                     {
-                        NPU_size[j][k][pro_time + q] -= best_size * a + b; // 更新这个NPU_size, 注意protime才是这次发送的请求的决策后的时间
+                        NPU_size[j][k][pro_time + q] -= best_size * user[i].a + user[i].b; // 更新这个NPU_size, 注意protime才是这次发送的请求的决策后的时间
                     }
 
                     int receive_time = timej + latency[j][id];
                     for (int q = timej + latency[j][id]; q <= pro_time - 1; q++)
-                        for (int &r : receive_process[j][k][q])
+                        if (receive_process[j][k][q])
                         {
                             // if (plan[r].sender > id)
                             //     receive_time = q + 1; // 确定receive_time
@@ -148,7 +154,7 @@ void solution()
                 {
                     int time_process = request_time(p.Bj, j, i) - latency[j][id];
                     for (int q = 0; q <= time_process - 1; q++)
-                        NPU_size[j][k][p.process_start + q] += p.Bj * a + b;
+                        NPU_size[j][k][p.process_start + q] += p.Bj * user[i].a + user[i].b;
                 }
 
                 //cerr << "user: " << i << " Server: " << j << " NPU: " << k << "\n";
@@ -160,12 +166,12 @@ void solution()
                         Fast_Time = solu.back().process_start + request_time(solu.back().Bj, j, i) - latency[j][id];
                         Fast_Solu = solu;
                     }
-                    parameter = 13;
+                    parameter = 11;
                 }
                 else
                 {
                     // 重新再做一次
-                    parameter--;
+                    parameter -= 2;
                     k--;
                 }
             }
@@ -176,10 +182,10 @@ void solution()
             request_id++;
             for (int k = j.process_start; k <= j.process_start + request_time(j.Bj, j.serverj, i) - latency[j.serverj][id] - 1; k++)
             {
-                NPU_size[j.serverj][j.NPUj][k] -= j.Bj * a + b;
+                NPU_size[j.serverj][j.NPUj][k] -= j.Bj * user[i].a + user[i].b;
             }
             plan[request_id] = j;
-            receive_process[j.serverj][j.NPUj][j.timej + latency[j.serverj][id]].push_back(request_id);
+            receive_process[j.serverj][j.NPUj][j.timej + latency[j.serverj][id]] = 1;
             ans[id].push_back(request_id);
         }
 
@@ -224,7 +230,7 @@ void monitor_NPU_size()
     for (int i = 1; i <= M; i++)
     {
         for (int &id : ans[i])
-            truesumsize += (plan[id].Bj * a + b) * (request_time(plan[id].Bj, plan[id].serverj, i) - latency[plan[id].serverj][i]);
+            truesumsize += (plan[id].Bj * user[i].a + user[i].b) * (request_time(plan[id].Bj, plan[id].serverj, i) - latency[plan[id].serverj][i]);
     }
     // cerr << "sumsize: " << sumsize << "  truesumsize: " << truesumsize << "\n";
     if (sumsize == truesumsize)
@@ -283,7 +289,7 @@ int main()
     sort_server();
     solution();
 
-    monitor_NPU_size();
+    // monitor_NPU_size();
     return 0;
 }
 // g++ test.cpp -std=c++11 -o test; get-Content .\sample\extra_data.in | test.exe > test.txt

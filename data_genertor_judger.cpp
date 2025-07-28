@@ -8,17 +8,17 @@
 #include <iomanip>
 #include <time.h>
 using namespace std;
-int N, g[11], k[11], m[11], M, latency[11][501], a, b, NPU_size[11][11][200001], request_size[11], server_index[501][11], NPU_request_count[11][11];
+int N, g[11], k[11], m[11], M, latency[11][501], NPU_size[11][11][200001], request_size[501][11], server_index[501][11], NPU_request_count[11][11];
 string program1, program2;
 struct NPU_Request_List
 {
     int user, B, received_time, flag;
-} NPU_request_list[11][11][300001];
+} NPU_request_list[11][11][200001];
 
 struct User
 {
-    int id, s, e, cnt, end_time, move;
-    User() : id(0), s(0), e(0), cnt(0), end_time(0), move(0) {}
+    int id, s, e, cnt, end_time, move, a, b;
+    User() : id(0), s(0), e(0), cnt(0), end_time(0), move(0), a(0), b(0) {}
 } user[501];
 
 struct Plan
@@ -56,7 +56,10 @@ void data_loader_generator(bool New)
                 in >> latency[i][j];
             }
         }
-        in >> a >> b;
+        for (int i = 1; i <= M; i++)
+        {
+            in >> user[i].a >> user[i].b;
+        }
 
         for (int i = 1; i <= N; i++)
             for (int j = 1; j <= g[i]; j++) // 初始化
@@ -66,10 +69,14 @@ void data_loader_generator(bool New)
                     NPU_size[i][j][k] = m[i]; // 确实应该向下取整，
             }
 
-        for (int i = 1; i <= N; i++)
+        for (int j = 1; j <= M; j++)
         {
-            request_size[i] = min((m[i] - b) / a, 1000); // 表示应该向第i个服务器的NPU放入多大的样本数量
+            for (int i = 1; i <= N; i++)
+            {
+                request_size[j][i] = min((m[i] - user[j].b) / user[j].a, 1000); // 表示应该向第i个服务器的NPU放入多大的样本数量
+            }
         }
+
         in.close();
         double time1 = clock();
 
@@ -89,8 +96,8 @@ void data_loader_generator(bool New)
     N = rand() % 2 + 2;
     for (int i = 1; i <= N; ++i)
     {
-        g[i] = rand() % 2 + 2;       // 1..10  这里要把数据强化一下注意
-        k[i] = rand() % 2 + 1;       // 1..5
+        g[i] = rand() % 2 + 2;     // 1..10  这里要把数据强化一下注意
+        k[i] = rand() % 2 + 1;     // 1..5
         m[i] = rand() % 601 + 800; // 1000..2000
     }
 
@@ -119,8 +126,11 @@ void data_loader_generator(bool New)
     }
 
     // 生成显存系数 a ∈ [10,20], b ∈ [100,200]
-    a = rand() % 5 + 16;    // 10..20
-    b = rand() % 101 + 100; // 100..200
+    for (int i = 1; i <= M; i++)
+    {
+        user[i].a = rand() % 5 + 16;    // 10..20
+        user[i].b = rand() % 101 + 100; // 100..200
+    }
 
     // 写入文件 ./sample/extra_data.in
     ofstream ofs(".//sample//extra_data.in");
@@ -142,7 +152,11 @@ void data_loader_generator(bool New)
         }
         ofs << "\n";
     }
-    ofs << a << " " << b << "\n";
+    for(int i=1;i<=M;i++)
+    {
+        ofs << user[i].a << " " << user[i].b << "\n";
+    }
+    
     for (int i = 1; i <= N; i++)
         for (int j = 1; j <= g[i]; j++) // 初始化
         {
@@ -150,10 +164,15 @@ void data_loader_generator(bool New)
             for (int k = 0; k <= 200000; k++)
                 NPU_size[i][j][k] = m[i]; // 确实应该向下取整，
         }
-    for (int i = 1; i <= N; i++)
+
+    for (int j = 1; j <= M; j++)
     {
-        request_size[i] = min((m[i] - b) / a, 1000); // 表示应该向第i个服务器的NPU放入多大的样本数量
+        for (int i = 1; i <= N; i++)
+        {
+            request_size[j][i] = min((m[i] - user[j].b) / user[j].a, 1000); // 表示应该向第i个服务器的NPU放入多大的样本数量
+        }
     }
+
     ofs.close();
 
     double time1 = clock();
@@ -224,7 +243,7 @@ void brief_check()
     {
         for (Plan &j : solution[i])
         {
-            if (j.Bj > (m[j.serverj] - b) / a)
+            if (j.Bj > (m[j.serverj] - user[i].b) / user[i].a)
             {
                 cout << "User id " << i << "    Batchsize Exceeds Memory";
                 return;
@@ -302,7 +321,7 @@ void NPU_request_process()
             {
                 cout<<"NPU_request_list["<<i<<"]["<<j<<"]:"<<NPU_request_list[i][j][t].user<<" "<<NPU_request_list[i][j][t].received_time<<" "<<NPU_request_list[i][j][t].B<<endl;
             }*/
-            for (int t = 0; t <= 200000; t++)// 注意这里修改了!!!
+            for (int t = 0; t <= 200000; t++) // 注意这里修改了!!!
             {
                 int temp_flag = 1;
                 while (temp_flag == 1)
@@ -322,7 +341,7 @@ void NPU_request_process()
                             }
                             else
                             {
-                                int temp_memory = a * NPU_request_list[i][j][count].B + b;
+                                int temp_memory = user[NPU_request_list[i][j][count].user].a * NPU_request_list[i][j][count].B + user[NPU_request_list[i][j][count].user].b;
                                 if (temp_memory <= NPU_size[i][j][t])
                                 {
                                     temp_flag = 1;
@@ -363,14 +382,14 @@ double score_calculate()
         score_sum += h_x(temp_x) * p_x(user[i].move) * 10000.0;
         /*cout<<"score_temp:"<<fixed<<setprecision(6)<<h_x(temp_x) * p_x(user[i].move) * 10000.0<<endl;*/
     }
-    //cout << "\nlatenum:" << user_count << endl;
+    // cout << "\nlatenum:" << user_count << endl;
     score_sum = h_x(user_count) * score_sum;
     return score_sum;
 }
 
 int main()
 {
-    program1 = "not_full_NPU";
+    program1 = "testpro";
     program2 = "not_full_NPUpro";
     data_loader_generator(1);
     ifstream in(program2 + ".txt");

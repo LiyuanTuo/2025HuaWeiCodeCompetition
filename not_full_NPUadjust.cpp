@@ -18,14 +18,19 @@ vector<int> ans[501]; // 这个ans的下标是用户的真实id, 存储请求的
 
 struct User
 {
-    int id, s, e, cnt, a, b, Ti;
-    User() : id(0), s(0), e(0), cnt(0), a(0), b(0), Ti(1) {}
+    int id, s, e, cnt, a, b, Ti, late;
+    User() : id(0), s(0), e(0), cnt(0), a(0), b(0), Ti(1), late(0) {}
     bool operator<(const User &other)
     {                                                                           // 查完成度之后发现在这个样例下完成度是差不多的
-        if (cnt * a + Ti * b +  != other.cnt * other.a + other.Ti * other.b)       // 查完成度，必须查！查完之后发现在这个样例下完成度是差不多的
-            return cnt * a + Ti * b < other.cnt * other.a + other.Ti * other.b; // 一个-0.991136 一个-0.991093，优化后的完成度甚至还要差一些
+        if (cnt * a + Ti * b + late * 200 != other.cnt * other.a + other.Ti * other.b + other.late * 200)       // 查完成度，必须查！查完之后发现在这个样例下完成度是差不多的
+            return cnt * a + Ti * b + late * 200  < other.cnt * other.a + other.Ti * other.b + other.late * 200; // 一个-0.991136 一个-0.991093，优化后的完成度甚至还要差一些
         else
             return s < other.s;
+
+        // if(server_timecost[id][1].first != server_timecost[other.id][1].first)
+        //     return server_timecost[id][1].first < server_timecost[other.id][1].first;
+        // else
+        //     return cnt * a + Ti * b < other.cnt * other.a + other.Ti * other.b;
     }
 } user[501];
 
@@ -99,12 +104,14 @@ void sort_server()
     {
         sort(server_timecost[i] + 1, server_timecost[i] + N + 1);
 
-        for(int j = 1; j <= min(4, N); j++) // 这里好险否则又是bug
+        for(int j = 1; j <= min(3, N); j++) // 这里好险否则又是bug
         {
             int server = server_timecost[i][j].second;
             user[i].Ti += (int)ceil(1.0 * user[i].cnt / request_size[i][server]);
+            user[i].late += latency[server][i];
         }
-        user[i].Ti /= min(4, N);
+        user[i].Ti /= min(3, N);
+        user[i].late /= min(3, N);
     }
 }
 
@@ -338,10 +345,7 @@ int main()
     get_argument_initial();
     sort_server();
 
-    for(int i = 1; i <= 10; i++)
-        solution(),
-        monitor_NPU_size();
-
+    solution();
     for (int i = 1; i <= M; i++)
     {
         cout << ans[i].size() << "\n"; // Ti must less than 300, there won't cost a problem
@@ -350,6 +354,7 @@ int main()
             cout << plan[j].timej << " " << plan[j].serverj << " " << plan[j].NPUj << " " << plan[j].Bj << " ";
         cout << "\n";
     }
+    monitor_NPU_size();
 
     ofstream out("not_full_NPUadjust_monitor.txt");
     for (int i = 1; i <= N; i++)

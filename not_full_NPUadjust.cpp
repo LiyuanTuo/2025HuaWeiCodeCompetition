@@ -4,7 +4,7 @@ using namespace std;
 // 单个npu能处理的样本的大小范围是[40, 190]
 // 单个npu完成上述大小范围的样本所需时间的范围是[2, 14]
 // 传输时间范围是[10, 20]
-int N, g[11], k[11], m[11], M, latency[11][501], request_size[501][11], request_id, delay_parameter[501], size_parameter[501];
+int N, g[11], k[11], m[11], M, latency[11][501], request_size[501][11], request_id;
 short NPU_size[11][11][200001];       // 有极端数据，13.5万是安全的
 bool receive_process[11][11][200001]; // 内存储请求的id
 pair<int, int> server_timecost[501][11];
@@ -18,12 +18,12 @@ vector<int> ans[501]; // 这个ans的下标是用户的真实id, 存储请求的
 
 struct User
 {
-    int id, s, e, cnt, a, b;
-    User() : id(0), s(0), e(0), cnt(0), a(0), b(0) {}
+    int id, s, e, cnt, a, b, Ti;
+    User() : id(0), s(0), e(0), cnt(0), a(0), b(0), Ti(1) {}
     bool operator<(const User &other)
-    {                                                           // 查完成度之后发现在这个样例下完成度是差不多的
-        if (cnt * a + b != other.cnt * other.a + other.b)       // 查完成度，必须查！查完之后发现在这个样例下完成度是差不多的
-            return cnt * a + b < other.cnt * other.a + other.b; // 一个-0.991136 一个-0.991093，优化后的完成度甚至还要差一些
+    {                                                                           // 查完成度之后发现在这个样例下完成度是差不多的
+        if (cnt * a + Ti * b +  != other.cnt * other.a + other.Ti * other.b)       // 查完成度，必须查！查完之后发现在这个样例下完成度是差不多的
+            return cnt * a + Ti * b < other.cnt * other.a + other.Ti * other.b; // 一个-0.991136 一个-0.991093，优化后的完成度甚至还要差一些
         else
             return s < other.s;
     }
@@ -52,11 +52,6 @@ void get_argument_initial()
         cin >> user[i].a >> user[i].b;
     }
 
-    for (int i = 1; i <= N; i++)
-        for (int j = 1; j <= g[i]; j++) // 初始化
-            for (int k = 0; k <= 200000; k++)
-                NPU_size[i][j][k] = m[i]; // 确实应该向下取整，
-
     for (int j = 1; j <= M; j++)
     {
         for (int i = 1; i <= N; i++)
@@ -64,9 +59,6 @@ void get_argument_initial()
             request_size[j][i] = min((m[i] - user[j].b) / user[j].a, 1000); // 表示应该向第i个服务器的NPU放入多大的样本数量
         }
     }
-
-    for (int i = 1; i <= N; i++)
-        which_gpu[i] = 1; // initial which_gpu
 }
 
 int request_time(int size, int server, int user)
@@ -106,14 +98,20 @@ void sort_server()
     for (int i = 1; i <= M; i++)
     {
         sort(server_timecost[i] + 1, server_timecost[i] + N + 1);
+
+        for(int j = 1; j <= min(4, N); j++) // 这里好险否则又是bug
+        {
+            int server = server_timecost[i][j].second;
+            user[i].Ti += (int)ceil(1.0 * user[i].cnt / request_size[i][server]);
+        }
+        user[i].Ti /= min(4, N);
     }
-    sort(user + 1, user + 1 + M);
 }
 
-bool check(int mid, int j, int k, int process_start, int time_process, int id)
+bool check(int mid, int j, int k, int process_start, int time_process, int i)
 {
     for (int p = 0; p < time_process; p++)
-        if (NPU_size[j][k][process_start + p] < mid * user[id].a + user[id].b)
+        if (NPU_size[j][k][process_start + p] < mid * user[i].a + user[i].b)
             return 0;
 
     return 1;
@@ -121,6 +119,21 @@ bool check(int mid, int j, int k, int process_start, int time_process, int id)
 
 void solution()
 {
+    request_id = 0;
+    memset(receive_process, 0, sizeof receive_process);
+    for (int i = 1; i <= N; i++)
+        for (int j = 1; j <= g[i]; j++) // 初始化
+            for (int k = 0; k <= 200000; k++)
+                NPU_size[i][j][k] = m[i]; // 确实应该向下取整，
+
+    for (int i = 1; i <= N; i++)
+        which_gpu[i] = 1; // initial which_gpu
+
+    sort(user + 1, user + 1 + M);
+
+    for (int i = 1; i <= M; i++)
+        ans[i].clear();
+
     for (int i = 1; i <= M; i++)
     {
         int id = user[i].id, Fast_Time = 0x3f3f3f3f;
@@ -142,23 +155,6 @@ void solution()
                         int Ti_count = 0;
                         while (cnt)
                         {
-                            /*int process_time = (int)ceil(sqrt(request_size[id][j]) / ::k[j]), future_cost = 0;
-                            int Ti = (int)ceil(1.0 * cnt / request_size[id][j]);
-                            if (process_time <= latency[j][id] + 1)
-                            {
-                                future_cost = Ti * (latency[j][id] + 1) - 1 +
-                                              (int)ceil(sqrt(cnt - (Ti - 1) * request_size[id][j]) / ::k[j]);
-                            }
-                            else
-                            {
-                                future_cost = latency[j][id] + (Ti - 1) * (int)ceil(sqrt(request_size[id][j]) / ::k[j]) +
-                                              (int)ceil(sqrt(cnt - (Ti - 1) * request_size[id][j]) / ::k[j]);
-                            }
-                            if (timej + future_cost >= Fast_Time)
-                            {
-                                break; // IDA* 优化
-                            }*/
-
                             if (Ti_count >= 300)
                                 break;
                             int r = min(request_size[id][j], cnt), l = max(r * size_range / 100, 1); // 确定size的大小
@@ -231,8 +227,6 @@ void solution()
                         {
                             Fast_Time = solu.back().process_start + request_time(solu.back().Bj, j, i) - latency[j][id];
                             Fast_Solu = solu;
-                            size_parameter[id] = size_range;
-                            delay_parameter[id] = delay_range;
                         }
                     }
                 }
@@ -242,33 +236,25 @@ void solution()
         // 采用最优的方案
         for (Plan j : Fast_Solu)
         {
-            request_id++;
             for (int k = j.process_start; k <= j.process_start + request_time(j.Bj, j.serverj, i) - latency[j.serverj][id] - 1; k++)
             {
                 NPU_size[j.serverj][j.NPUj][k] -= j.Bj * user[i].a + user[i].b;
             }
-            plan[request_id] = j;
+            plan[++request_id] = j;
             receive_process[j.serverj][j.NPUj][j.timej + latency[j.serverj][id]] = 1;
             ans[id].push_back(request_id);
         }
+        user[i].Ti = Fast_Solu.size();
+
         int serv = Fast_Solu[0].serverj;
         which_gpu[serv] = which_gpu[serv] % g[serv] + 1;
-        //cerr << "user : " << i << "finished\n";
-    }
-
-    for (int i = 1; i <= M; i++)
-    {
-        cout << ans[i].size() << "\n"; // Ti must less than 300, there won't cost a problem
-
-        for (int j : ans[i])
-            cout << plan[j].timej << " " << plan[j].serverj << " " << plan[j].NPUj << " " << plan[j].Bj << " ";
-        cout << "\n";
+        // cerr << "user : " << i << "finished\n";
     }
 }
 
 void monitor_NPU_size()
 {
-    cerr << "not_full_NPUpro:\n\n";
+    cerr << "not_full_NPUadjust:\n\n";
     long long sumsize = 0;
     for (int i = 1; i <= N; i++)
     {
@@ -306,7 +292,7 @@ void monitor_NPU_size()
         cerr << "WRONG\n";
     }
 
-    // ofstream out("not_full_NPUpro_monitor.txt");
+    // ofstream out("not_full_NPUadjust_monitor.txt");
     // for (int i = 1; i <= N; i++)
     // {
     //     for (int j = 1; j <= g[i]; j++)
@@ -346,33 +332,37 @@ void monitor_NPU_size()
     // cout << average / 500.0 << "\n";
 }
 
-void parameter_get()
-{
-    double best_size_range = 0.0, best_delay_range = 0.0;
-    for (int i = 1; i <= M; i++)
-    {
-        cerr << "delay_parameter_" << i << " is " << delay_parameter[i] << endl;
-        best_delay_range += delay_parameter[i];
-    }
-    cerr << endl;
-    for (int i = 1; i <= M; i++)
-    {
-        cerr << "size_parameter_" << i << " is " << size_parameter[i] << endl;
-        best_size_range += size_parameter[i];
-    }
-    cerr << endl;
-    cerr << "best_size_parameter is " << best_size_range / M << endl;
-    cerr << "best_delay_parameter is " << best_delay_range / M << endl;
-}
-
 //-0.992853
 int main()
 {
     get_argument_initial();
     sort_server();
-    solution();
-    monitor_NPU_size();
-    // parameter_get();
+
+    for(int i = 1; i <= 10; i++)
+        solution(),
+        monitor_NPU_size();
+
+    for (int i = 1; i <= M; i++)
+    {
+        cout << ans[i].size() << "\n"; // Ti must less than 300, there won't cost a problem
+
+        for (int j : ans[i])
+            cout << plan[j].timej << " " << plan[j].serverj << " " << plan[j].NPUj << " " << plan[j].Bj << " ";
+        cout << "\n";
+    }
+
+    ofstream out("not_full_NPUadjust_monitor.txt");
+    for (int i = 1; i <= N; i++)
+    {
+        for (int j = 1; j <= g[i]; j++)
+        {
+            for (int k = 0; k <= 60000; k++)
+            {
+                out << NPU_size[i][j][k] << " ";
+            }
+            out << "\n";
+        }
+    }
     return 0;
 }
-// g++ not_full_NPUpro.cpp -std=c++11 -o not_full_NPUpro; get-Content .\sample\extra_data.in | not_full_NPUpro.exe > not_full_NPUpro.txt
+// g++ not_full_NPUadjust.cpp -std=c++11 -o not_full_NPUadjust; get-Content .\sample\extra_data.in | not_full_NPUadjust.exe > not_full_NPUadjust.txt

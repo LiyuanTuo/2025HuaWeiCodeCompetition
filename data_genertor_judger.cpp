@@ -93,12 +93,12 @@ void data_loader_generator(bool New)
     srand(time(0)); // 固定随机种子
 
     // 生成服务器种类 N ∈ [1, 10]
-    N = rand() % 2 + 2;
+    N = rand() % 1 + 3;
     for (int i = 1; i <= N; ++i)
     {
-        g[i] = rand() % 2 + 2;     // 1..10  这里要把数据强化一下注意
-        k[i] = rand() % 2 + 1;     // 1..5
-        m[i] = rand() % 601 + 800; // 1000..2000
+        g[i] = rand() % 1 + 3;     // 1..10  这里要把数据强化一下注意
+        k[i] = rand() % 1 + 1;     // 1..5
+        m[i] = rand() % 601 + 1000; // 1000..2000
     }
 
     // 生成用户数量 M ∈ [1, 500]
@@ -109,7 +109,7 @@ void data_loader_generator(bool New)
     {
         user[i].id = i;
         // cnt ∈ [1, 6000]
-        user[i].cnt = rand() % 4001 + 2000;
+        user[i].cnt = rand() % 2001 + 3000;
         int maxS = 60000 - user[i].cnt * 10;
         user[i].s = rand() % (maxS + 1);
         user[i].e = user[i].s + 5 * user[i].cnt + rand() % (60000 - user[i].s - 5 * user[i].cnt + 1) / 50;
@@ -389,8 +389,8 @@ double score_calculate()
 
 int main()
 {
-    program1 = "testpro";
-    program2 = "not_full_NPUpro";
+    program1 = "not_full_NPUpro";
+    program2 = "not_full_NPUadjust";
     data_loader_generator(1);
     ifstream in(program2 + ".txt");
     for (int i = 1; i <= M; i++)

@@ -19,11 +19,12 @@ vector<int> ans[501]; // 这个ans的下标是用户的真实id, 存储请求的
 struct User
 {
     int id, s, e, cnt, a, b, Ti, late;
-    User() : id(0), s(0), e(0), cnt(0), a(0), b(0), Ti(1), late(0) {}
+    bool islate;
+    User() : id(0), s(0), e(0), cnt(0), a(0), b(0), Ti(1), late(0), islate(0) {}
     bool operator<(const User &other)
-    {                                                                                                           // 查完成度之后发现在这个样例下完成度是差不多的
-        if (cnt * a + Ti * b + late * 200 != other.cnt * other.a + other.Ti * other.b + other.late * 200)       // 查完成度，必须查！查完之后发现在这个样例下完成度是差不多的
-            return cnt * a + Ti * b + late * 200 < other.cnt * other.a + other.Ti * other.b + other.late * 200; // 一个-0.991136 一个-0.991093，优化后的完成度甚至还要差一些
+    {                                                                                                                                                                         // 查完成度之后发现在这个样例下完成度是差不多的
+        if ((cnt * a + Ti * b) * pow(2.0, id / 5000.0) + islate * 2000000 != (other.cnt * other.a + other.Ti * other.b) * pow(2, other.id / 5000.0) + other.islate * 2000000) // 查完成度，必须查！查完之后发现在这个样例下完成度是差不多的
+            return (cnt * a + Ti * b) * pow(2.0, id / 5000.0) + islate * 2000000 < (other.cnt * other.a + other.Ti * other.b) * pow(2, other.id / 5000.0) + other.islate * 2000000;
         else
             return s < other.s;
 
@@ -149,20 +150,22 @@ void solution()
         int change_time = 2;
         int used_cnt = 0;
 
-        for (int r = 1; r <= change_time + 1; r++)
-        {
-            int Fast_Time = 0x3f3f3f3f;
-            vector<Plan> Fast_Solu;
+        double Fast_Time = INT_MAX;
+        vector<Plan> Fast_Solu;
 
-            for (int t = 1; t <= N; t++)
+        for (int size_range = 6; size_range <= 100; size_range += 7)
+        {
+            for (int delay_range = 1; delay_range <= 2; delay_range += 1)
             {
-                int j = server_timecost[id][t].second;
-                // int k = which_gpu[j]; // 临时变量
-                for (int k = 1; k <= g[j]; k++)
+                for (int r = 1; r <= change_time + 1; r++)
                 {
-                    for (int size_range = 6; size_range <= 100; size_range += 7)
+
+                    
+                    for (int t = 1; t <= N; t++)
                     {
-                        for (int delay_range = 1; delay_range <= 2; delay_range += 1)
+                        int j = server_timecost[id][t].second;
+                        // int k = which_gpu[j]; // 临时变量
+                        for (int k = 1; k <= g[j]; k++)
                         {
                             vector<Plan> solu; // 存储的是请求的id
                             int cnt = (r != change_time + 1) ? user[i].cnt / (change_time + 1) : user[i].cnt - user[i].cnt / (change_time + 1) * change_time,
@@ -185,7 +188,7 @@ void solution()
                             int process_start = timej + latency[j][id];
                             int Ti_count = 0;
 
-                            while (used_cnt + sumcnt < user[i].cnt * r / (change_time + 1) )//&& sumcnt <= user[i].cnt / (change_time + 1))
+                            while (used_cnt + sumcnt < user[i].cnt * r / (change_time + 1)) //&& sumcnt <= user[i].cnt / (change_time + 1))
                             {
                                 if (Ti_count + so.size() >= 300 / (change_time + 1) * r) // 请！确保不会出现 前两次发送就发送了299次的情况
                                     break;
@@ -255,7 +258,6 @@ void solution()
                             }
                             // 更新ans[id]
 
-
                             int sta;
                             if (r == 1)
                             {
@@ -299,7 +301,7 @@ void solution()
             }
             // user[i].Ti = Fast_Solu.size();
 
-            if(used_cnt == user[i].cnt)
+            if (used_cnt == user[i].cnt)
                 break;
             // int serv = Fast_Solu[0].serverj;
             // which_gpu[serv] = which_gpu[serv] % g[serv] + 1;
@@ -379,8 +381,8 @@ void monitor_NPU_size()
     {
         Plan &solu = plan[ans[i].back()];
         int endid = solu.process_start + request_time(solu.Bj, solu.serverj, i) - latency[solu.serverj][i] - user[i].e;
-        Score += pow(2, -1.0 * endid / (user[i].e - user[i].s) / 100.0) * 10000.0;
-        Highest_Score += pow(2, 1.0 / 100.0) * 10000.0;
+        Score += pow(2, -1.0 * endid / (user[i].e - user[i].s) / 100.0) * 10000.0 * pow(2.0, -1.0 * i / 5000.0);
+        Highest_Score += pow(2, 1.0 / 100.0) * 10000.0 * pow(2.0, -1.0 * i / 5000.0);
     }
     Score *= pow(2, -1.0 * latenum / 100.0);
     cerr << fixed << setprecision(0) << "Score: " << Score << "\n";

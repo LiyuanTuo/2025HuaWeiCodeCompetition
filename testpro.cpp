@@ -5,7 +5,7 @@ using namespace std;
 // 单个npu完成上述大小范围的样本所需时间的范围是[2, 14]
 // 传输时间范围是[10, 20]
 int N, g[11], k[11], m[11], M, latency[11][501], request_size[501][11], request_id;
-short NPU_size[11][11][200001];              // 有极端数据，13.5万是安全的
+short NPU_size[11][11][200001];       // 有极端数据，13.5万是安全的
 bool receive_process[11][11][200001]; // 内存储请求的id
 pair<int, int> server_timecost[501][11];
 int which_gpu[11]; // which_gpu[i]用于表示第i个服务器应该让哪一个gpu处理传送至服务器i的请求
@@ -13,19 +13,24 @@ int which_gpu[11]; // which_gpu[i]用于表示第i个服务器应该让哪一个
 struct Plan
 {
     int timej, serverj, NPUj, Bj, process_start, sender;
-} plan[150001];        // 至多80000个请求
+} plan[150001];       // 至多80000个请求
 vector<int> ans[501]; // 这个ans的下标是用户的真实id, 存储请求的id
 
 struct User
 {
-    int id, s, e, cnt, a, b;
-    User() : id(0), s(0), e(0), cnt(0) {}
+    int id, s, e, cnt, a, b, Ti, late;
+    User() : id(0), s(0), e(0), cnt(0), a(0), b(0), Ti(1), late(0) {}
     bool operator<(const User &other)
-    {                              
-        if (cnt != other.cnt)       //   这里也可以修改
-            return cnt < other.cnt; //
+    {                                                                           // 查完成度之后发现在这个样例下完成度是差不多的
+        if (cnt * a + Ti * b + late * 200 != other.cnt * other.a + other.Ti * other.b + other.late * 200)       // 查完成度，必须查！查完之后发现在这个样例下完成度是差不多的
+            return cnt * a + Ti * b + late * 200  < other.cnt * other.a + other.Ti * other.b + other.late * 200; // 一个-0.991136 一个-0.991093，优化后的完成度甚至还要差一些
         else
             return s < other.s;
+
+        // if(server_timecost[id][1].first != server_timecost[other.id][1].first)
+        //     return server_timecost[id][1].first < server_timecost[other.id][1].first;
+        // else
+        //     return cnt * a + Ti * b < other.cnt * other.a + other.Ti * other.b;
     }
 } user[501];
 
@@ -57,7 +62,7 @@ void get_argument_initial()
             for (int k = 0; k <= 200000; k++)
                 NPU_size[i][j][k] = m[i]; // 确实应该向下取整，
 
-    for(int i = 1; i <= M; i++)
+    for (int i = 1; i <= M; i++)
     {
         for (int j = 1; j <= N; j++)
         {
@@ -101,48 +106,21 @@ void sort_server()
             }
         }
     }
-    // cout << "Test\n";
+
     for (int i = 1; i <= M; i++)
     {
-        // cout << "user_" << i << ":";
-        // for (int j = 1; j <= N; j++)
-        // {
-        //     cout << server_timecost[i][j].first << " " << server_timecost[i][j].second << " ";
-        // }
-        // cout << endl;
         sort(server_timecost[i] + 1, server_timecost[i] + N + 1);
-        // cout << "      :";
-        // for (int j = 1; j <= N; j++)
-        // {
-        //     cout << server_timecost[i][j].first << " " << server_timecost[i][j].second << " ";
-        // }
-        // cout << endl;
+        for(int j = 1; j <= min(3, N); j++) // 这里好险否则又是bug
+        {
+            int server = server_timecost[i][j].second;
+            user[i].Ti += (int)ceil(1.0 * user[i].cnt / request_size[i][server]);
+            user[i].late += latency[server][i];
+        }
+        user[i].Ti /= min(3, N);
+        user[i].late /= min(3, N);
     }
     sort(user + 1, user + 1 + M);
 }
-
-// bool check(int mid, int j, int k, int &process_start, int time_process)
-// {
-//     for (int p = 0; p < time_process; p++)
-//         if (NPU_size[j][k][process_start + p] < mid * a + b)
-//         {
-//             process_start = process_start + p + 1;
-//             return 0;
-//         }
-
-//     return 1;
-// }
-
-// bool Check(int mid, int j, int k, int process_start, int time_process)
-// {
-//     for (int p = 0; p < time_process; p++)
-//         if (NPU_size[j][k][process_start + p] < mid * a + b)
-//         {
-//             return 0;
-//         }
-
-//     return 1;
-// }
 
 int parameter = 13; // 这个参数不仅与Ti是否超过300相关，还与是否超时相关
 void solution()
@@ -161,29 +139,15 @@ void solution()
                 vector<Plan> solu; // 存储的是请求的id
                 int cnt = user[i].cnt;
                 int timej = user[i].s;
+                int Ti_count = 0;
                 while (cnt)
                 {
-                    int process_time = (int)ceil(sqrt(request_size[id][j]) / ::k[j]), future_cost = 0;
-                    int Ti = (int)ceil(1.0 * cnt / request_size[id][j]);
-                    if (process_time <= latency[j][id] + 1)
-                    {
-                        future_cost = Ti * (latency[j][id] + 1) - 1 +
-                                      (int)ceil(sqrt(cnt - (Ti - 1) * request_size[id][j]) / ::k[j]);
-                    }
-                    else
-                    {
-                        future_cost = latency[j][id] + (Ti - 1) * (int)ceil(sqrt(request_size[id][j]) / ::k[j]) +
-                                      (int)ceil(sqrt(cnt - (Ti - 1) * request_size[id][j]) / ::k[j]);
-                    }
-                    if (timej + future_cost >= Fast_Time)
-                    {
-                        break; // IDA* 优化
-                    }
-
+                    // if (Ti_count >= 300) // 暂时先不写这个
+                    //     break;
                     double Fast_effiective = INT_MAX;
                     int best_size, pro_time;
 
-                    int process_start = timej + latency[j][id];                                                               // 这里需要根据具体题目调整这个参数防止Ti过大
+                    int process_start = timej + latency[j][id];                                                                       // 这里需要根据具体题目调整这个参数防止Ti过大
                     for (int size = max(min(request_size[id][j], cnt) / parameter, 1); size <= min(request_size[id][j], cnt); size++) // 确定size的大小, 这个循环完成决策
                     {
                         bool flag = 0;
@@ -200,9 +164,6 @@ void solution()
                                 }
                         } // 这个循环只是为了找到那个位置而已
 
-                        // while (check(size, j, k, process_start, time_process) == 0)
-                        ;
-                        // 这个循环只是为了找到那个位置而已
                         // int r = min(request_size[j], cnt);
                         // while (size < r)
                         // {
@@ -251,6 +212,11 @@ void solution()
                     solu.push_back({timej, j, k, best_size, pro_time, id});
                     timej = timej + latency[j][id] + 1; // 准备下一次请求的发送时间，这里可以调参
                     cnt -= best_size;
+                    Ti_count++;
+                    if (solu.back().process_start + request_time(solu.back().Bj, j, i) - latency[j][id] >= Fast_Time)
+                    {
+                        break;
+                    }
                 }
                 // 还原
                 for (Plan &p : solu)
@@ -263,12 +229,7 @@ void solution()
                 // cerr << "user: " << i << " Server: " << j << " NPU: " << k << "\n";
                 if (solu.size() <= 300)
                 {
-                    // 更新ans[id]
-                    int sumBj = 0;
-                    for (auto p : solu)
-                        sumBj += p.Bj;
-
-                    if (sumBj == user[i].cnt && solu.back().process_start + request_time(solu.back().Bj, j, i) - latency[j][id] < Fast_Time)
+                    if (cnt == 0 && solu.back().process_start + request_time(solu.back().Bj, j, i) - latency[j][id] < Fast_Time)
                     {
                         Fast_Time = solu.back().process_start + request_time(solu.back().Bj, j, i) - latency[j][id];
                         Fast_Solu = solu;

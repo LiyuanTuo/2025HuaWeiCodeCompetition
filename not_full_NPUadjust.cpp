@@ -21,9 +21,9 @@ struct User
     int id, s, e, cnt, a, b, Ti, late;
     User() : id(0), s(0), e(0), cnt(0), a(0), b(0), Ti(1), late(0) {}
     bool operator<(const User &other)
-    {                                                                           // 查完成度之后发现在这个样例下完成度是差不多的
+    {                                                                                                           // 查完成度之后发现在这个样例下完成度是差不多的
         if (cnt * a + Ti * b + late * 200 != other.cnt * other.a + other.Ti * other.b + other.late * 200)       // 查完成度，必须查！查完之后发现在这个样例下完成度是差不多的
-            return cnt * a + Ti * b + late * 200  < other.cnt * other.a + other.Ti * other.b + other.late * 200; // 一个-0.991136 一个-0.991093，优化后的完成度甚至还要差一些
+            return cnt * a + Ti * b + late * 200 < other.cnt * other.a + other.Ti * other.b + other.late * 200; // 一个-0.991136 一个-0.991093，优化后的完成度甚至还要差一些
         else
             return s < other.s;
 
@@ -104,7 +104,7 @@ void sort_server()
     {
         sort(server_timecost[i] + 1, server_timecost[i] + N + 1);
 
-        for(int j = 1; j <= min(3, N); j++) // 这里好险否则又是bug
+        for (int j = 1; j <= min(3, N); j++) // 这里好险否则又是bug
         {
             int server = server_timecost[i][j].second;
             user[i].Ti += (int)ceil(1.0 * user[i].cnt / request_size[i][server]);
@@ -143,118 +143,168 @@ void solution()
 
     for (int i = 1; i <= M; i++)
     {
-        int id = user[i].id, Fast_Time = 0x3f3f3f3f;
-        vector<Plan> Fast_Solu;
+        int id = user[i].id;
+        vector<Plan> so;
 
-        for (int t = 1; t <= N; t++)
+        int change_time = 2;
+        int used_cnt = 0;
+
+        for (int r = 1; r <= change_time + 1; r++)
         {
-            int j = server_timecost[id][t].second;
-            int k = which_gpu[j]; // 临时变量
-            for (int _ = 1; _ <= g[j]; _++)
+            int Fast_Time = 0x3f3f3f3f;
+            vector<Plan> Fast_Solu;
+
+            for (int t = 1; t <= N; t++)
             {
-                for (int size_range = 6; size_range <= 100; size_range += 7)
+                int j = server_timecost[id][t].second;
+                // int k = which_gpu[j]; // 临时变量
+                for (int k = 1; k <= g[j]; k++)
                 {
-                    for (int delay_range = 1; delay_range <= 2; delay_range += 1)
+                    for (int size_range = 6; size_range <= 100; size_range += 7)
                     {
-                        vector<Plan> solu; // 存储的是请求的id
-                        int cnt = user[i].cnt;
-                        int timej = user[i].s, process_start = timej + latency[j][id];
-                        int Ti_count = 0;
-                        while (cnt)
+                        for (int delay_range = 1; delay_range <= 2; delay_range += 1)
                         {
-                            if (Ti_count >= 300)
-                                break;
-                            int r = min(request_size[id][j], cnt), l = max(r * size_range / 100, 1); // 确定size的大小
-                            int time_process = request_time(l, j, i) - latency[j][id];
+                            vector<Plan> solu; // 存储的是请求的id
+                            int cnt = (r != change_time + 1) ? user[i].cnt / (change_time + 1) : user[i].cnt - user[i].cnt / (change_time + 1) * change_time,
+                                sumcnt = 0;
+                            if (cnt == 0)
+                                continue; // 这个可以放到r内测更好
 
-                            bool flag = 1;
-                            for (int p = 0; p < time_process; p++)
-                                if (NPU_size[j][k][process_start + p] < l * user[i].a + user[i].b)
-                                {
-                                    flag = 0;
-                                    process_start = process_start + p + 1;
-                                    break;
-                                }
-
-                            if (flag)
+                            int timej;
+                            if (r == 1)
                             {
-                                while (l < r)
-                                {
-                                    int mid = l + r + 1 >> 1;
-                                    time_process = request_time(mid, j, i) - latency[j][id];
-                                    if (check(mid, j, k, process_start, time_process, i))
-                                        l = mid;
-                                    else
-                                        r = mid - 1;
-                                }
+                                timej = user[i].s;
+                            }
+                            else
+                            {
+                                if (user[i].cnt / (change_time + 1) == 0)
+                                    timej = user[i].s;
+                                else
+                                    timej = so.back().timej + latency[so.back().serverj][id] + 1; // or delay range
+                            }
+                            int process_start = timej + latency[j][id];
+                            int Ti_count = 0;
 
-                                time_process = request_time(l, j, i) - latency[j][id];
-                                // process_start存储的是该NPU开始处理当前这个请求的时间
-                                // 也即是服务器接收到这个请求时间的上界 timej + latency[j][id] 是接收到这个请求时间的下界
-                                for (int q = 0; q <= time_process - 1; q++)
-                                {
-                                    NPU_size[j][k][process_start + q] -= l * user[i].a + user[i].b; // 更新这个NPU_size
-                                }
+                            while (used_cnt + sumcnt < user[i].cnt * r / (change_time + 1) )//&& sumcnt <= user[i].cnt / (change_time + 1))
+                            {
+                                if (Ti_count + so.size() >= 300 / (change_time + 1) * r) // 请！确保不会出现 前两次发送就发送了299次的情况
+                                    break;
+                                int r = min(request_size[id][j], user[i].cnt - used_cnt - sumcnt), l = max(r * size_range / 100, 1); // 确定size的大小
+                                int time_process = request_time(l, j, i) - latency[j][id];
 
-                                int receive_time = timej + latency[j][id];
-                                for (int q = timej + latency[j][id]; q <= process_start - 1; q++)
-                                    if (receive_process[j][k][q])
+                                bool flag = 1;
+                                for (int p = 0; p < time_process; p++)
+                                    if (NPU_size[j][k][process_start + p] < l * user[i].a + user[i].b)
                                     {
-                                        // if (plan[r].sender > id)
-                                        //     receive_time = q + 1; // 确定receive_time
-                                        // else
-                                        //     receive_time = q;    //目前来看，这部分影响较小
-                                        receive_time = q + 1;
+                                        flag = 0;
+                                        process_start = process_start + p + 1;
+                                        break;
                                     }
 
-                                // receive_time 存储的就是这个NPU收到这个请求的时间
-                                // 于是timej就是这个请求正确发送的最早时间，并且再次初始化process_start
-                                timej = receive_time - latency[j][id];
-                                solu.push_back({timej, j, k, l, process_start, id});
-                                timej = timej + latency[j][id] + delay_range; // 准备下一次请求的发送时间，这里可以调参
-                                process_start = timej + latency[j][id];       // 准备下一次请求的开始处理的事件时间
-                                cnt -= l;
-                                Ti_count++;
-                                if (solu.back().process_start + request_time(solu.back().Bj, j, i) - latency[j][id] >= Fast_Time)
+                                if (flag)
                                 {
-                                    break;
+                                    while (l < r)
+                                    {
+                                        int mid = l + r + 1 >> 1;
+                                        time_process = request_time(mid, j, i) - latency[j][id];
+                                        if (check(mid, j, k, process_start, time_process, i))
+                                            l = mid;
+                                        else
+                                            r = mid - 1;
+                                    }
+
+                                    time_process = request_time(l, j, i) - latency[j][id];
+                                    // process_start存储的是该NPU开始处理当前这个请求的时间
+                                    // 也即是服务器接收到这个请求时间的上界 timej + latency[j][id] 是接收到这个请求时间的下界
+                                    for (int q = 0; q <= time_process - 1; q++)
+                                    {
+                                        NPU_size[j][k][process_start + q] -= l * user[i].a + user[i].b; // 更新这个NPU_size
+                                    }
+
+                                    int receive_time = timej + latency[j][id];
+                                    for (int q = timej + latency[j][id]; q <= process_start - 1; q++)
+                                        if (receive_process[j][k][q])
+                                        {
+                                            // if (plan[r].sender > id)
+                                            //     receive_time = q + 1; // 确定receive_time
+                                            // else
+                                            //     receive_time = q;    //目前来看，这部分影响较小
+                                            receive_time = q + 1;
+                                        }
+
+                                    // receive_time 存储的就是这个NPU收到这个请求的时间
+                                    // 于是timej就是这个请求正确发送的最早时间，并且再次初始化process_start
+                                    timej = receive_time - latency[j][id];
+                                    solu.push_back({timej, j, k, l, process_start, id});
+                                    timej = timej + latency[j][id] + delay_range; // 准备下一次请求的发送时间，这里可以调参
+                                    process_start = timej + latency[j][id];       // 准备下一次请求的开始处理的事件时间
+                                    sumcnt += l;
+                                    Ti_count++;
+                                    // if (solu.back().process_start + request_time(solu.back().Bj, j, i) - latency[j][id] >= Fast_Time)
+                                    // {
+                                    //     break;
+                                    // }
                                 }
                             }
-                        }
-                        // 还原
-                        for (Plan &p : solu)
-                        {
-                            int time_process = request_time(p.Bj, j, i) - latency[j][id];
-                            for (int q = 0; q <= time_process - 1; q++)
-                                NPU_size[j][k][p.process_start + q] += p.Bj * user[i].a + user[i].b;
-                        }
-                        // 更新ans[id]
+                            // 还原
+                            for (Plan &p : solu)
+                            {
+                                int time_process = request_time(p.Bj, j, i) - latency[j][id];
+                                for (int q = 0; q <= time_process - 1; q++)
+                                    NPU_size[j][k][p.process_start + q] += p.Bj * user[i].a + user[i].b;
+                            }
+                            // 更新ans[id]
 
-                        if (cnt == 0 && solu.back().process_start + request_time(solu.back().Bj, j, i) - latency[j][id] < Fast_Time)
-                        {
-                            Fast_Time = solu.back().process_start + request_time(solu.back().Bj, j, i) - latency[j][id];
-                            Fast_Solu = solu;
+
+                            int sta;
+                            if (r == 1)
+                            {
+                                sta = user[i].s;
+                            }
+                            else
+                            {
+                                if (user[i].cnt / (change_time + 1) == 0)
+                                    sta = user[i].s;
+                                else
+                                    sta = so.back().timej + latency[so.back().serverj][id] + 1; // or delay range
+                            }
+
+                            if (used_cnt + sumcnt >= user[i].cnt * r / (change_time + 1) && (1.0 * solu.back().process_start + request_time(solu.back().Bj, j, i) - latency[j][id] - sta) / sumcnt < Fast_Time) // 处理一下solu为空的情况 及cnt一开始就是0!!!
+                            {
+                                Fast_Time = (1.0 * solu.back().process_start + request_time(solu.back().Bj, j, i) - latency[j][id] - sta) / sumcnt;
+                                Fast_Solu = solu;
+                            }
                         }
                     }
+                    // k = k % g[j] + 1;
                 }
-                k = k % g[j] + 1;
             }
-        }
-        // 采用最优的方案
-        for (Plan j : Fast_Solu)
-        {
-            for (int k = j.process_start; k <= j.process_start + request_time(j.Bj, j.serverj, i) - latency[j.serverj][id] - 1; k++)
-            {
-                NPU_size[j.serverj][j.NPUj][k] -= j.Bj * user[i].a + user[i].b;
-            }
-            plan[++request_id] = j;
-            receive_process[j.serverj][j.NPUj][j.timej + latency[j.serverj][id]] = 1;
-            ans[id].push_back(request_id);
-        }
-        user[i].Ti = Fast_Solu.size();
 
-        int serv = Fast_Solu[0].serverj;
-        which_gpu[serv] = which_gpu[serv] % g[serv] + 1;
+            for (auto t : Fast_Solu)
+            {
+                so.push_back(t);
+                used_cnt += t.Bj;
+            }
+
+            // 采用最优的方案
+            for (Plan j : Fast_Solu)
+            {
+                for (int k = j.process_start; k <= j.process_start + request_time(j.Bj, j.serverj, i) - latency[j.serverj][id] - 1; k++)
+                {
+                    NPU_size[j.serverj][j.NPUj][k] -= j.Bj * user[i].a + user[i].b;
+                }
+                plan[++request_id] = j;
+                receive_process[j.serverj][j.NPUj][j.timej + latency[j.serverj][id]] = 1;
+                ans[id].push_back(request_id);
+            }
+            // user[i].Ti = Fast_Solu.size();
+
+            if(used_cnt == user[i].cnt)
+                break;
+            // int serv = Fast_Solu[0].serverj;
+            // which_gpu[serv] = which_gpu[serv] % g[serv] + 1;
+        }
+
         // cerr << "user : " << i << "finished\n";
     }
 }

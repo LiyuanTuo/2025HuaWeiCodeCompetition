@@ -391,7 +391,7 @@ int main()
 {
     program1 = "not_full_NPUpro";
     program2 = "not_full_NPUadjust";
-    data_loader_generator(1);
+    data_loader_generator(0);
     ifstream in(program2 + ".txt");
     for (int i = 1; i <= M; i++)
     {
